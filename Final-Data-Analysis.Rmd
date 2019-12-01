@@ -43,7 +43,89 @@ The Code Book is in the file `paris_paintings.md` provides more information abou
 
 ### EDA
 
-Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots.  
+Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots. 
+
+```{r EDA}
+summary(paintings_train)
+```
+### George's Thoughts on Summary
+
+There are a few changes that can be made immediately to the data to help with the modeling process:
+
+The 'sale' column is merely a combination of 'dealer' and 'year', and could be dropped immediately, as it introduces no additional information. 
+
+'Lot' would make sense to be a numeric, however, there are some entries with letters in them. Coercing to numeric would cause errors.  
+
+'position' is supposed to be a percentage, yet there are a few entries over 1. This implies that there is a data misentry problem here, and these entries should be divided by 100 to be correctly formatted. 
+
+'dealer' should be a factor with 4 levels.
+
+'year' seems to be correctly formatted with no missing data.
+
+'originauthor' should be a factor with 7 levels.
+
+'origin_cat' should be a factor with 5 levels.
+
+'school_pntg' should be a factor with 7 levels.
+
+'diff_origin' formatted correctly with no missing data. We could fact-check that the 1's and 0's to ensure their accuracy
+
+'log_price' is our response variable. No missing data, all looks good here
+
+'price' is a character, should be numeric. 
+
+'count' is a column of all 1's. not useful and could be dropped
+
+'subject' text description of the painting
+
+'authorstandard' name of author.. seems fine
+
+'authorliving' binary variable, no missing data. looks good
+
+'authorstyle' has a ton of na's that are coded in as "n/a". could be turned into factor
+
+'author' name of author. Redundant to 'authorstandard'. We might prefer 'authorstandard'
+
+'winningbidder' name of winning bidder. looks fine, could be important
+
+'winningbiddertype' should be factor. There are blank values that should be NA
+
+'endbuyer' should be factor. There are blank values that should be NA
+
+'interm' binary variable with 395 NA's
+
+'type_intermed' type of intermed used. Should only be an option when 'interm' is 1.
+
+'Height_in' 'Width_in' and 'Surface_Rect', 113 115 and 115 NA's. Could be NA when painting is round? 
+
+'Diam_in' has 1469 NA's (only 31 observations with data). We could calculate the diameter?
+
+'Surface_rnd' has 1374 NA's (126 with data). Could check if align with the NA's in height_in width_in and Surface_Rect...
+
+'shape' should be factor and there are blank entries that need to be NA
+
+'Surface' surface area of painting in sq inches. 81 NA's. Could calculate these if we have other size information (it appears we don't have other information when this is NA)
+
+'material' should be factor and there are blanks instead of NA's
+
+'mat' category of material.. redundant? NA's are left blank and are also encoded "n/a"
+
+'materialCat' not included in the write-up about the variables. (canvas, wood, copper, other)
+
+'nfigures' Number of figures? whatever that means. There is no missing data here
+
+The rest are binary variables with no missing data.
+
+
+### To Do:
+
+1. Any changes listed above
+2. What to do with missing data
+3. GGpairs any numeric data against the logprice
+4. Boxplots of binary and categorical variables on logprice by category: (0, 1), (J, L, P, R), etc. 
+
+
+
 
 ### Build your first model
 
