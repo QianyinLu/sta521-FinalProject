@@ -82,11 +82,11 @@ The 'sale' column is merely a combination of 'dealer' and 'year', and could be d
 
 'authorliving' binary variable, no missing data. looks good
 
-'authorstyle' has a ton of na's that are coded in as "n/a". could be turned into factor
+'authorstyle' n/a means no introduction. could be turned into factor
 
 'author' name of author. Redundant to 'authorstandard'. We might prefer 'authorstandard'
 
-'winningbidder' name of winning bidder. looks fine, could be important
+'winningbidder' name of winning bidder. looks fine, 312 different winning bidders...
 
 'winningbiddertype' should be factor. There are blank values that should be NA
 
@@ -106,7 +106,7 @@ The 'sale' column is merely a combination of 'dealer' and 'year', and could be d
 
 'Surface' surface area of painting in sq inches. 81 NA's. Could calculate these if we have other size information (it appears we don't have other information when this is NA)
 
-'material' should be factor and there are blanks instead of NA's
+'material' should be factor and there are blanks instead of NA's - there are 59 levels
 
 'mat' category of material.. redundant? NA's are left blank and are also encoded "n/a"
 
@@ -119,12 +119,53 @@ The rest are binary variables with no missing data.
 
 ### To Do:
 
-1. Any changes listed above
 2. What to do with missing data
 3. GGpairs any numeric data against the logprice
 4. Boxplots of binary and categorical variables on logprice by category: (0, 1), (J, L, P, R), etc. 
 
 
+```{r To Do #1}
+library(dplyr)
+library(stringr)
+
+# Fix position > 1
+paintings_train$position[paintings_train$position > 1] <- paintings_train$position[paintings_train$position > 1]/100
+
+# Clean Data
+paintings_train <- paintings_train %>%
+  mutate(dealer = as.factor(dealer),
+         origin_author = as.factor(origin_author),
+         origin_cat = as.factor(origin_cat),
+         school_pntg = as.factor(school_pntg),
+         price = str_remove(price, ',') %>% as.numeric(),
+         authorstyle = as.factor(authorstyle),
+         winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),
+                                              .missing = 'NA')),
+         endbuyer = as.factor(recode(na_if(endbuyer,''),
+                                     .missing = 'NA')),
+         Interm = recode(Interm,
+                         .missing = 0,
+                         `0` = 0,
+                         `1` = 1),
+         type_intermed = as.factor(recode(na_if(type_intermed,''),
+                                          .missing='NA')),
+         Shape = as.factor(recode(na_if(Shape,""),
+                         .missing = 'Unknown',
+                        'ovale' = 'oval',
+                        'ronde' = 'round')),
+         mat = as.factor(recode(na_if(mat,""),
+                      .missing = 'NA',
+                      'n/a' = 'NA')),
+         materialCat = as.factor(recode(na_if(materialCat,""),
+                                        .missing = 'NA')),
+         material = as.factor(recode(na_if(material,""),
+                                     .missing = 'NA',
+                                     'n/a' = 'NA'))
+         )
+```
+### Comments after cleaning data:
+
+What do we do with the NA's in Height, Width, Surface_Rect. Some of these are NA's because the shape of the painting is round. In that situation, we don't want to fill in values for the NA's, and we don't want to throw away the entire row. What are our other options... 
 
 
 ### Build your first model
