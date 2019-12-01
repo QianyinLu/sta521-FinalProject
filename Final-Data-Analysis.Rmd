@@ -134,6 +134,7 @@ paintings_train$position[paintings_train$position > 1] <- paintings_train$positi
 # Clean Data
 paintings_train <- paintings_train %>%
   mutate(dealer = as.factor(dealer),
+         year = as.factor(year),
          origin_author = as.factor(origin_author),
          origin_cat = as.factor(origin_cat),
          school_pntg = as.factor(school_pntg),
@@ -166,6 +167,24 @@ paintings_train <- paintings_train %>%
 ### Comments after cleaning data:
 
 What do we do with the NA's in Height, Width, Surface_Rect. Some of these are NA's because the shape of the painting is round. In that situation, we don't want to fill in values for the NA's, and we don't want to throw away the entire row. What are our other options... 
+
+```{r To Do #3}
+library(GGally)
+
+ggpairs(paintings_train[,c("Height_in", "Width_in", "Surface_Rect", "Diam_in", "Surface_Rnd", "Surface", "position", "nfigures", "logprice")])
+```
+
+```{r To Do #4}
+train.gathered <- paintings_train %>%
+  dplyr::select(-c(sale,lot,position,price,count,subject,authorstandard,author,winningbidder,Height_in,Width_in,Surface_Rect,Diam_in,Surface_Rnd,Surface,nfigures)) %>%
+  tidyr::gather(key = "variable", value = "value", -logprice)
+
+ggplot(train.gathered, aes(x = value, y = logprice, colour = variable, group = value)) +
+  facet_wrap(vars(variable), scales = "free_x") +
+  guides(color = "none") +
+  geom_boxplot(data = train.gathered)
+
+```
 
 
 ### Build your first model
