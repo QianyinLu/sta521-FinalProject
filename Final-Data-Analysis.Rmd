@@ -6,6 +6,12 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+suppressMessages(library(ISLR))
+suppressMessages(library(arm))
+suppressMessages(library(ggplot2))
+suppressMessages(library(dplyr))
+suppressMessages(library(GGally))
+library(knitr)
 ```
 
 
@@ -43,7 +49,39 @@ The Code Book is in the file `paris_paintings.md` provides more information abou
 
 ### EDA
 
-Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots.  
+Using EDA and any numerical summaries get to know the data - identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots.  
+
+```{r}
+summary(paintings_train)
+```
+
+
+```{r EDA, cache = T, warning=F}
+paintings_train$lot = as.numeric(paintings_train$lot)
+ggpairs(paintings_train, columns = c(10, 2:7),
+lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+ggpairs(paintings_train, columns = c(10,8,9,12,15,16,19),
+lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+ggpairs(paintings_train, columns = c(10,20,21,22,23,24,25),
+lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+ggpairs(paintings_train, columns = c(10,28,29,32,33,34,35),
+lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 ### Build your first model
 
@@ -52,6 +90,10 @@ In the first model predict the auction price `price` using the transformation `l
 
 ```{r model1, echo=TRUE}
 model1 = lm(logprice ~ 1, data=paintings_train)
+```
+
+```{r}
+model2 = 
 ```
 
 
@@ -94,7 +136,7 @@ _Points will be deducted for code chunks that should not be included, etc._
 
 ###  Evaluation on test data for Part I
 
-Once your write up is submitted, your models will be evaluated on the following criteria based on predictions  on the test data (20 points): 
+Once your write up is submitted, your models will be evaluated on the following criteria based on predictions on the test data (20 points): 
 
 * Bias:  Average (Yhat-Y)  positive values indicate the model tends to overestimate price (on average) while negative values indicate the model tends to underestimate price.
 
