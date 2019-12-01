@@ -118,7 +118,7 @@ The rest are binary variables with no missing data.
 
 
 ### To Do:
-
+1. Make changes listed above
 2. What to do with missing data
 3. GGpairs any numeric data against the logprice
 4. Boxplots of binary and categorical variables on logprice by category: (0, 1), (J, L, P, R), etc. 
