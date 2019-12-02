@@ -1,0 +1,217 @@
+---
+title: "Part-I Simple Model"
+author: "Chenxi Wu"
+date: "11/30/2019"
+output: 
+    pdf_document:
+        highlight: pygment
+        toc: false
+        toc_depth: 2
+        fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, 
+                      warning=FALSE, 
+                      message=FALSE,
+                      fig.align="center",
+                      fig.pos='H', 
+                      results="asis")
+```
+
+```{r pakages}
+library(tidyverse)
+library(knitr)
+library(gbm)
+library(kableExtra)
+```
+
+```{r read-data}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
+## Introduction
+
+## EDA
+
+Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots. 
+
+```{r data-manipulation}
+paint_train <- paintings_train
+paint_test <- paintings_test
+
+# change variables into appropriate format
+paint_train <- paint_train %>% 
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, authorstandard, authorstyle, winningbiddertype, endbuyer, Interm, type_intermed, material, mat, materialCat, Shape, engraved, original, prevcoll, othartist, paired, figures, finished, lrgfont, relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, arch, mytho, peasant, othgenre, singlefig, portrait, still_life, discauth, history, allegory, pastorale), as.factor) %>% 
+  mutate_at(vars(price), as.numeric)
+
+# delete unnecessary variables
+paint_train <- paint_train %>% 
+  dplyr::select(-c("sale", "lot", "count", "subject", "author", "authorstandard"))
+
+summary(paint_train)
+```
+
+```{r eda}
+hist1 <- ggplot(paint_train, aes(x = logprice)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `logprice`")
+hist2 <- ggplot(paint_train, aes(x = price)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `price`")
+grid.arrange(hist1, hist2, ncol = 2)
+
+eda_cat <- cbind(logprice = paint_train$logprice, 
+                 paint_train[, map_chr(paint_train, class) == "factor"])
+eda_con <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3, 1:2, 5:12))
+eda_cat <- eda_cat %>% 
+  gather(key = "categorical", value = "value", dealer:pastorale)
+eda_con <- eda_con %>% 
+  gather(key = "numeric", value  ="value", position:other)
+
+ggplot(eda_cat, aes(x = value, y = logprice)) +
+  geom_point(size = 0.5, alpha = 0.3) +
+  stat_smooth(method = "auto") +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+
+ggplot(eda_con, aes(x = value, y = logprice)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  stat_smooth(method = "lm") +
+  facet_wrap(~numeric, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+```
+To start with, we first check on the emprirical distribution of the response variable. There are 2 variables, *logprice* and *price*. From the histogram, we can see that *logprice*, which is the logarithm of *price*, is more normally-distributed. Consider the normality assumption of linear regression, we will use *logprice* as the response variable.  
+
+Then we plot *logprice* against all continuous and categorical variables respectively. Here are some findings.     
+  
+For categorical variables:  
+- *history*, *original*, *type_intermed* and *pastorale* have serious **class imbalance** problem, where value of 1 is seldomly observed. So we will discard these variables in modeling.  
+- The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded. 
+- *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
+- *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
+- At glance, strong predictors includde *dealer*, *diff_origin*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *peasant*. 
+
+```{r}
+tab_ori <- table(paint_train$origin_author, paint_train$origin_cat)
+chi <- chisq.test(tab_ori)
+```
+
+
+For continuous variables: 
+- *other* and *position* have most of their values gather around 0 and we cannot observe any obvious pattern.  
+- *Diam-in* and *Surface_Rnd* contain too many NA's and therefore should not be inlcuded in the model.  
+- *Surface* and *Surface_Rect* contain duplicate information, and *Surface* contains all the information in *Surface_Rect*. So we will only keep *Surface*. *Height_in* and *Width_in* are discarded for similar reasoning.  
+
+## Build your first model
+
+In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression.  You may use stepwise model selection to simplify the model using AIC and/or BIC.  For reference, we will fit the null model to initialize the leaderboard, but replace model1 with your recommended model.
+
+
+```{r model1, echo=TRUE}
+model_ini = lm(logprice ~ year + origin_author + dealer + endbuyer + Interm + Surface + materialCat + diff_origin + engraved + prevcoll + origin_cat + paired + portrait + figures + finished + lrgfont + lands_sc + peasant, data=paint_train)
+summary(model_ini)
+
+ini_aic <- step(model_ini, trace = F)
+summary(ini_aic)
+
+model_int <- lm(logprice ~ year + origin_author + dealer + endbuyer + 
+    Interm + Surface + materialCat + diff_origin + engraved + 
+    prevcoll + paired + portrait + figures + finished + lrgfont + 
+    lands_sc + (year + Surface):(origin_author + dealer + endbuyer + 
+    Interm + materialCat + diff_origin + engraved + 
+    prevcoll + paired + portrait + figures + finished + lrgfont + 
+    lands_sc) + year:Surface, data = paint_train)
+summary(model_int)
+model1 <- step(model_int, trace = F)
+summary(model1)
+par(mfrow = c(2, 2))
+plot(model1)
+```
+
+
+Save predictions and intervals.  
+```{r test-data-manipulation}
+# change variables into appropriate format
+paint_test <- paint_test %>% 
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, authorstandard, authorstyle, winningbiddertype, endbuyer, Interm, type_intermed, material, mat, materialCat, Shape, engraved, original, prevcoll, othartist, paired, figures, finished, lrgfont, relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, arch, mytho, peasant, othgenre, singlefig, portrait, still_life, discauth, history, allegory, pastorale), as.factor) %>% 
+  mutate_at(vars(price), as.numeric)
+
+# delete unnecessary variables
+paint_test <- paint_test %>% 
+  dplyr::select(-c("sale", "lot", "count", "subject", "author", "authorstandard"))
+summary(paint_test)
+```
+
+```{r predict-model1, echo=FALSE}
+predictions = as.data.frame(
+  exp(predict(model1, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
+
+
+
+Once you are satisfied with your model, provide a write up of your data analysis project in a new Rmd file/pdf file: `Part-I-Writeup.Rmd` by copying over salient parts of your R notebook. The written assignment consists of five parts:
+
+1. Introduction: Summary of problem and objectives (5 points)
+
+2. Exploratory data analysis (10 points): must include three correctly labeled graphs and an explanation that highlight the most important features that went into your model building.
+
+3. Development and assessment of an initial model (10 points)
+
+* Initial model: must include a summary table and an explanation/discussion for variable selection and overall amount of variation explained. 
+
+* Model selection: must include a discussion
+
+* Residual: must include residual plot(s) and a discussion.  
+
+* Variables: must include table of coefficients and CI
+
+4. Summary and Conclusions (10 points)
+
+What is the (median) price for the "baseline" category if there are categorical or dummy variables in the model (add CI's)?  (be sure to include units!) Highlight important findings and potential limitations of your model.  Does it appear that interactions are important?  What are the most important variables and/or interactions?  Provide interprations of how the most important variables influence the (median) price giving a range (CI).  Correct interpretation of coefficients for the log model desirable for full points.
+
+Provide recommendations for the art historian about features or combination of features to look for to find the most valuable paintings.
+
+_Points will be deducted for code chunks that should not be included, etc._
+
+*Upload write up  to Sakai any time before Dec 7th*
+
+###  Evaluation on test data for Part I
+
+Once your write up is submitted, your models will be evaluated on the following criteria based on predictions  on the test data (20 points): 
+
+* Bias:  Average (Yhat-Y)  positive values indicate the model tends to overestimate price (on average) while negative values indicate the model tends to underestimate price.
+
+* Maximum Deviation:  Max |Y-Yhat| -  identifies the worst prediction  made in the validation data set.
+
+* Mean Absolute Deviation:  Average |Y-Yhat| - the average error (regardless of sign).
+
+* Root Mean Square Error: Sqrt Average (Y-Yhat)^2
+
+* Coverage:  Average( lwr < Y < upr) 
+
+In order to have a passing wercker badge, your file for predictions needs to be the same length as the test data, with three columns:  fitted values, lower CI and upper CI values in that order with names, *fit*, *lwr*, and *upr* respectively such as in the code chunk below. 
+
+Save predictions and intervals.  
+```{r predict-model-final, echo=FALSE, include=FALSE}
+# change model1 or update as needed
+predictions = as.data.frame(
+  exp(predict(model1, newdata=paintings_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
+
+
+You will be able to see your scores on the score board.  They will be initialized by a prediction based on the mean in the training data.
+
+
+
+
+
