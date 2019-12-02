@@ -13,7 +13,7 @@ For this project you will take the role of a consultant hired by an Art historia
 
 ## About the Data Analysis Project
 
-The art historian would like to know what factors drove prices of painting, which paintings might be overvalued and which are undervalued.   It is up to you to decide what methods you want to use (frequentist or Bayesian or a combination) to answer these questions, and implement them to help to identify undervalued and overvalued paintings, as well as which features and possible interactions are at play.
+The art historian would like to know what factors drove prices of painting, which paintings might be overvalued and which are undervalued.  It is up to you to decide what methods you want to use (frequentist or Bayesian or a combination) to answer these questions, and implement them to help to identify undervalued and overvalued paintings, as well as which features and possible interactions are at play.
 
 
 You will have three data sets: a subset for training, a subset for testing, and a third subset for validation. You will be asked to do data exploration and build your model (or models) initially using only the training data. Then, you will test your model on the testing data, and finally validate using the validation data. We are challenging you to keep your analysis experience realistic, and in a realistic scenario you would not have access to all three of these data sets at once.  You will be able to see on our scoreboard how well your team is doing based on its predictive performance on the testing data.  After your project is turned in you will see the final score on the validation set.   
