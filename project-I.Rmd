@@ -73,8 +73,7 @@ eda_con <- eda_con %>%
   gather(key = "numeric", value  ="value", position:other)
 
 ggplot(eda_cat, aes(x = value, y = logprice)) +
-  geom_point(size = 0.5, alpha = 0.3) +
-  stat_smooth(method = "auto") +
+  geom_boxplot() +
   facet_wrap(~categorical, scales = "free") +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
@@ -95,7 +94,7 @@ For categorical variables:
 - The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded. 
 - *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
 - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
-- At glance, strong predictors includde *dealer*, *diff_origin*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *peasant*. 
+- At glance, strong predictors includde *dealer*, *diff_origin*, *discauth*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *figures*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *lands_elem*. 
 
 ```{r}
 tab_ori <- table(paint_train$origin_author, paint_train$origin_cat)
@@ -114,7 +113,7 @@ In the first model predict the auction price `price` using the transformation `l
 
 
 ```{r model1, echo=TRUE}
-model_ini = lm(logprice ~ year + origin_author + dealer + endbuyer + Interm + Surface + materialCat + diff_origin + engraved + prevcoll + origin_cat + paired + portrait + figures + finished + lrgfont + lands_sc + peasant, data=paint_train)
+model_ini = lm(logprice ~ year + origin_author + dealer + discauth + endbuyer + Interm + Surface + materialCat + diff_origin + engraved + prevcoll + origin_cat + paired + portrait + figures + finished + lrgfont + lands_sc + lands_elem, data=paint_train)
 summary(model_ini)
 
 ini_aic <- step(model_ini, trace = F)
@@ -123,10 +122,10 @@ summary(ini_aic)
 model_int <- lm(logprice ~ year + origin_author + dealer + endbuyer + 
     Interm + Surface + materialCat + diff_origin + engraved + 
     prevcoll + paired + portrait + figures + finished + lrgfont + 
-    lands_sc + (year + Surface):(origin_author + dealer + endbuyer + 
+    lands_sc + year:(Surface + origin_author + dealer + endbuyer + 
     Interm + materialCat + diff_origin + engraved + 
     prevcoll + paired + portrait + figures + finished + lrgfont + 
-    lands_sc) + year:Surface, data = paint_train)
+    lands_sc), data = paint_train)
 summary(model_int)
 model1 <- step(model_int, trace = F)
 summary(model1)
