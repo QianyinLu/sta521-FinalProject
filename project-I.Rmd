@@ -55,9 +55,11 @@ summary(paint_train)
 
 ```{r eda}
 hist1 <- ggplot(paint_train, aes(x = logprice)) +
-  geom_histogram(fill = "light blue")
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `logprice`")
 hist2 <- ggplot(paint_train, aes(x = price)) +
-  geom_histogram(fill = "light blue")
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `price`")
 grid.arrange(hist1, hist2, ncol = 2)
 
 eda_cat <- cbind(logprice = paint_train$logprice, 
@@ -84,12 +86,12 @@ ggplot(eda_con, aes(x = value, y = logprice)) +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
 ```
-To start with, we first check on the emprirical distribution of the response. There are 2 variables, *logprice* and *price*. From the histogram, we can see that *logprice*, which is the logarithm of *price*, is more normally-distributed. Consider the normality assumption of linear regression, we will use *logprice* as the response variables. 
+To start with, we first check on the emprirical distribution of the response variable. There are 2 variables, *logprice* and *price*. From the histogram, we can see that *logprice*, which is the logarithm of *price*, is more normally-distributed. Consider the normality assumption of linear regression, we will use *logprice* as the response variable.  
 
-Then we plot *logprice* against all continuous and categorical variables respectively. 
+Then we plot *logprice* against all continuous and categorical variables respectively. Here are some findings.     
   
 For categorical variables:  
-- *history*, *original*, *type_intermed* and *pastorale* have serious **class imbalance** problem, where value of 1 is seldomly observed. So we will discard these two variables in modeling.  
+- *history*, *original*, *type_intermed* and *pastorale* have serious **class imbalance** problem, where value of 1 is seldomly observed. So we will discard these variables in modeling.  
 - The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded. 
 - *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
 - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  

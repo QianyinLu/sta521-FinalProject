@@ -23,7 +23,7 @@ This data frame contains the following variables (columns):
 `logprice` - log of price fetched at auction (sales price in livres)
 
 `price` - price fetched at auction (sales price in livres)
-count - count, all 1s
+`count` - count, all 1s
 
 `subject` - short description of subject matter
 
@@ -77,7 +77,7 @@ count - count, all 1s
 `paired` - if the painting is sold or suggested as a pairing for another
 
 `figures` - if the number of figures included is emphasized
-finished - if the painting is noted for its highly polished finishing
+`finished` - if the painting is noted for its highly polished finishing
 
 `lrgfont` - if the dealer devotes an additional paragraph (always written in a larger font size)
 
