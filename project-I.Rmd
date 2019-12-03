@@ -48,33 +48,30 @@ paint$position[paintings_train$position > 1] <- paint$position[paint$position > 
 
 # regroup some categorical variables
 paint <- paint %>%
-  mutate(winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
                                               .missing = 'U')),
-         endbuyer = as.factor(recode(na_if(endbuyer,''),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,''),
                                      .missing = 'U')),
-         Interm = as.factor(recode(Interm,
+         Interm = as.factor(dplyr::recode(Interm,
                                    .missing = 0,
                                    `0` = 0,
                                    `1` = 1)),
-         type_intermed = as.factor(recode(na_if(type_intermed,''),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
                                           .missing='Unknown')),
-         Shape = as.factor(recode(na_if(Shape,""),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
                                   .missing = 'Unknown',
-                                  'ovale' = 'oval',
-                                  'ronde' = 'round')),
-         mat = as.factor(recode(na_if(mat,""),
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         mat = as.factor(dplyr::recode(na_if(mat,""),
                       .missing = 'Unknown',
                       'n/a' = 'Unknown')),
-         materialCat = as.factor(recode(na_if(materialCat,""),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
                                         .missing = 'Unknown')),
-         material = as.factor(recode(na_if(material,""),
+         material = as.factor(dplyr::recode(na_if(material,""),
                                      .missing = 'NA',
                                      'n/a' = 'NA'))
-         )
-
-
-# change variables into appropriate format
-paint <- paint %>% 
+         ) %>% 
+  # change variables into appropriate format
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
                  diff_origin, artistliving, authorstandard, authorstyle, 
                  winningbiddertype, endbuyer, Interm, type_intermed, 
@@ -85,11 +82,9 @@ paint <- paint %>%
                  still_life, discauth, history, allegory, pastorale), as.factor) %>% 
   mutate_at(vars(price), as.numeric)
 
-
-
 # delete unnecessary variables
 paint <- paint %>% 
-  dplyr::select(-c("sale", "subject", "author", "authorstandard"))
+  dplyr::select(-c("sale", "lot", "subject", "author", "authorstandard"))
 
 #summary(paint)
 
@@ -121,14 +116,14 @@ eda_con <- eda_con %>%
 eda_cat1 <- eda_cat[c(1:30000), ]
 eda_cat2 <- eda_cat[c(30001:60000), ]
 
-ggplot(eda_cat1, aes(x = value, y = logprice)) +
-  geom_boxplot() +
+ggplot(eda_cat1, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
   facet_wrap(~categorical, scales = "free") +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
 
-ggplot(eda_cat2, aes(x = value, y = logprice)) +
-  geom_boxplot() +
+ggplot(eda_cat2, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
   facet_wrap(~categorical, scales = "free") +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
