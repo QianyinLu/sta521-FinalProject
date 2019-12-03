@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = FALSE)
 ```{r}
 library(tidyverse)
 library(GGally)
+library(car)
 ```
 
 ```{r read data}
@@ -24,6 +25,10 @@ load("paintings_test.Rdata")
 total <- rbind(paintings_test,paintings_train)
 summary(total)
 ```
+### Removing NAs for continuous variables 
+```{r}
+total %>% select(Height_in,Width_in,Surface)%>%filter(is.na(Height_in)&is.na(Width_in)&is.na(Surface))
+```
 
 
 some thoughts about cleaning data
@@ -34,10 +39,15 @@ subject - too many categories, chose to remove
 authorstandard - can possibly remove as well(try BIC criterion)
 material/mat - too many categories, repeat with cat, so remove
 other - not sure what this variable is, but treat as categorical
+Diam_in - too many NA's, can be removed
+(Surface_rect - surface of rectangular painting in squared inches
+Diam_in - diameter of painting in inches
+Surface_rnd - surface of round painting;
+can all be removed)
 
 ```{r clean data}
 total.clean <- total %>% 
-  select(-c(sale,lot, subject, author, winningbidder, material, mat,count,price))%>%
+  select(-c(sale,lot, subject, author, winningbidder, material, mat,count,price,Diam_in))%>%
   #categorical
   mutate(winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),.missing = 'X')),
          endbuyer = as.factor(recode(na_if(endbuyer,""), .missing = 'X')),
@@ -59,8 +69,10 @@ summary(total.clean)
 #separate train and test set
 train <- total.clean %>% filter(!is.na(logprice))
 test <- total.clean %>% filter(is.na(logprice))
-
 ```
+
+
+
 ```{r}
 discrete_var <- c("dealer", "origin_author", "origin_cat", "school_pntg", "diff_origin", "artistliving", 
                  "authorstandard", "authorstyle", "engraved", "original", "prevcoll", "othartist", "paired",
@@ -73,10 +85,7 @@ paintings_continuous <- paintings_cat %>% filter(!category %in% discrete_var) %>
 
 #year should be categorical?
 
-ggplot(paintings_continuous,  aes(x=value,y=logprice,group=value))+
-  facet_wrap(~category, scales = "free") +
-  geom_point(data = paintings_continuous) 
-  
+#whether the relationship is linear or not?  
 ggplot(paintings_discrete,  aes(x=value,y=logprice,group=value))+
   facet_wrap(~category, scales = "free") +
   geom_boxplot(data = paintings_discrete) + 
@@ -87,9 +96,17 @@ ggplot(paintings_continuous,  aes(x=value,y=logprice,group=value))+
   geom_point(data = paintings_continuous) +
   labs(title = "Continuous Variables verses logprice")
 
+#do we need to transform certain variables
 ggpairs(train %>% select(-discrete_var), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     labs(title = "Pairwise Comparisons of Continuous Variables")
 ```
 transformation on nfigures, surface_rnd?
 deal with na problems
+
+### Model Selection
+```{r}
+train_continuous <- train%>%select(-discrete_var)
+power_trans = car::powerTransform(train_continuous[,-3], family = "bcPower")
+```
+
