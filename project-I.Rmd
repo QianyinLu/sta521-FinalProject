@@ -43,10 +43,35 @@ load("paintings_test.Rdata")
 # merge the two dataset first
 paint <- rbind(paintings_train, paintings_test)
 
-paint$endbuyer[paint$endbuyer == ""] <- "U"
-paint$winningbiddertype[paint$winningbiddertype == ""] <- "U"
-paint$Shape[paint$Shape != "squ_rect"] <- "other"
-paint$materialCat[paint$materialCat == ""] <- "unknown"
+# Fix position > 1
+paint$position[paintings_train$position > 1] <- paint$position[paint$position > 1]/100
+
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(recode(na_if(endbuyer,''),
+                                     .missing = 'U')),
+         Interm = as.factor(recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         type_intermed = as.factor(recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(recode(na_if(Shape,""),
+                                  .missing = 'Unknown',
+                                  'ovale' = 'oval',
+                                  'ronde' = 'round')),
+         mat = as.factor(recode(na_if(mat,""),
+                      .missing = 'Unknown',
+                      'n/a' = 'Unknown')),
+         materialCat = as.factor(recode(na_if(materialCat,""),
+                                        .missing = 'Unknown')),
+         material = as.factor(recode(na_if(material,""),
+                                     .missing = 'NA',
+                                     'n/a' = 'NA'))
+         )
+
 
 # change variables into appropriate format
 paint <- paint %>% 
@@ -59,6 +84,8 @@ paint <- paint %>%
                  arch, mytho, peasant, othgenre, singlefig, portrait, 
                  still_life, discauth, history, allegory, pastorale), as.factor) %>% 
   mutate_at(vars(price), as.numeric)
+
+
 
 # delete unnecessary variables
 paint <- paint %>% 
