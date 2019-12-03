@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = FALSE)
 suppressMessages(library(ISLR))
 suppressMessages(library(arm))
 suppressMessages(library(ggplot2))
-suppressMessages(library(dplyr))
+suppressMessages(library(tidyverse))
 suppressMessages(library(GGally))
 library(knitr)
 ```
@@ -55,33 +55,88 @@ Using EDA and any numerical summaries get to know the data - identify what you m
 summary(paintings_train)
 ```
 
+`position`: no NA or blank, numerical;
 
-```{r EDA, cache = T, warning=F}
-paintings_train$lot = as.numeric(paintings_train$lot)
-ggpairs(paintings_train, columns = c(10, 2:7),
-lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
-theme(axis.text.x = element_text(angle = 45, hjust = 1))
+`year`: no NA or blank, treat as categorical, as.factor;
 
-```
+`origin_author`: artists' nationality, no NA or blank, as.factor;
+
+`origin_cat`: dealers' nationality, no NA or blank, as.factor;
+
+`school_pntg`: school of painting; no NA or blank, as.factor;
+
+`artistliving`: no NA or blank, binary;
+
+`winningbiddertype`: replace blank with NA or a named category (I think a named category is better like 'unknown', about 400), as.factor;
+
+`endbuyer`: replace blank with NA or a named category (I think a named category is better like 'unknown', about 400), as.factor;
+
+`Interm`: how to deal with NA?
+
+`Shape`: replace blank with NA or a named category (I think a named category is better like 'unknown', about 20), as.factor;
+
+`Surface`: divede to 5 categories and treat the NA's as the fifth category 'unknown' or 'n/a', or use 'MICE' impuation;
+
+`mat`: replace blank with 'n/a', as.factor;
+
+`nfigures`: treat as binary factor;
+
+for the following variable we can just use boxplot to observe;
 
 ```{r}
-ggpairs(paintings_train, columns = c(10,8,9,12,15,16,19),
-lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
-theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+paintings_train.1 = paintings_train %>% 
+  mutate(year = factor(year),
+         origin_author = factor(origin_author),
+         origin_cat = factor(origin_cat),
+         school_pntg = factor(school_pntg),
+         winningbiddertype = factor(if_else(winningbiddertype=='','unknown',winningbiddertype)),
+         endbuyer = factor(if_else(endbuyer=='','unknown',endbuyer)),
+         Shape = factor(if_else(Shape=='','unknown',Shape)),
+         mat = factor(if_else(mat=='','n/a',mat)),
+         nfigures = if_else(nfigures==0,0,1)) %>% 
+  select(year,origin_author,origin_cat,school_pntg,winningbiddertype,endbuyer,Shape,mat,
+         nfigures,engraved:pastorale,
+         Interm,Surface,
+         logprice)
 ```
+
+
 
 ```{r}
-ggpairs(paintings_train, columns = c(10,20,21,22,23,24,25),
-lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
-theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plt_cat.1 = paintings_train.1 %>%
+  select(logprice, year,origin_author,origin_cat,school_pntg,winningbiddertype,endbuyer,Shape,mat) %>%
+  gather(key = "key", value = "value", -logprice) %>%
+  mutate(value = factor(value))
+
+ggplot(plt_cat.1, aes(x = value, y = logprice))+
+  geom_boxplot()+
+  facet_wrap(~key)+
+  theme_bw()+
+  labs(x = "Value", title = "Relationship between winpercent and catagorical variables")
+
+plt_cat.2 = paintings_train.1 %>%
+  select(logprice, nfigures,engraved:pastorale) %>%
+  gather(key = "key", value = "value", -logprice) %>%
+  mutate(value = factor(value))
+
+ggplot(plt_cat.2, aes(x = value, y = logprice))+
+  geom_boxplot()+
+  facet_wrap(~key)+
+  theme_bw()+
+  labs(x = "Value", title = "Relationship between winpercent and catagorical variables")
+
+plt_cont = paintings_train.1 %>%
+  select(logprice, Interm,Surface) %>%
+  gather(key = "key", value = "value", -logprice)
+
+ggplot(plt_cont, aes(x = value, y = logprice))+
+  geom_point()+
+  facet_wrap(~key)+
+  theme_bw()+
+  labs(x = "Value", title = "Relationship between winpercent and continuous variables")
 ```
 
-```{r}
-ggpairs(paintings_train, columns = c(10,28,29,32,33,34,35),
-lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)), progress = F)+
-theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
+
 
 ### Build your first model
 
