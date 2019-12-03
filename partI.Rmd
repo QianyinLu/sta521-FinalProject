@@ -1,0 +1,95 @@
+---
+title: "Part I"
+output: html_notebook
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(GGally)
+```
+
+```{r read data}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
+### Data cleaning 
+```{r}
+#merge training and testing data
+total <- rbind(paintings_test,paintings_train)
+summary(total)
+```
+
+
+some thoughts about cleaning data
+sale - drop, dealer initial not important
+lot - drop, just an identification number 
+position - questionable, not sure, take as numeric
+subject - too many categories, chose to remove
+authorstandard - can possibly remove as well(try BIC criterion)
+material/mat - too many categories, repeat with cat, so remove
+other - not sure what this variable is, but treat as categorical
+
+```{r clean data}
+total.clean <- total %>% 
+  select(-c(sale,lot, subject, author, winningbidder, material, mat,count,price))%>%
+  #categorical
+  mutate(winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),.missing = 'X')),
+         endbuyer = as.factor(recode(na_if(endbuyer,""), .missing = 'X')),
+         Interm = as.factor(recode(as.character(total$Interm), .missing = "X")), #treat NA as X, there are some character NA and real NA, so transform to character first 
+         type_intermed = as.factor(recode(na_if(type_intermed,""), .missing = 'X')),
+         Shape = as.factor(recode(na_if(Shape, ""), .missing = 'X',
+                                  `ovale` = 'oval',
+                                  `ronde` = 'round')),
+         materialCat = as.factor(recode(na_if(materialCat,""), .missing = 'X')),
+         
+  )%>%
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, 
+                 authorstandard, authorstyle, engraved, original, prevcoll, othartist, paired,
+                 figures, finished, lrgfont, relig, landsALL, lands_sc, lands_elem, lands_figs,
+                 lands_ment, arch, mytho, peasant, othgenre, singlefig, portrait, still_life,
+                 discauth, history, allegory, pastorale,other), as.factor) 
+  
+summary(total.clean)
+#separate train and test set
+train <- total.clean %>% filter(!is.na(logprice))
+test <- total.clean %>% filter(is.na(logprice))
+
+```
+```{r}
+discrete_var <- c("dealer", "origin_author", "origin_cat", "school_pntg", "diff_origin", "artistliving", 
+                 "authorstandard", "authorstyle", "engraved", "original", "prevcoll", "othartist", "paired",
+                 "figures", "finished", "lrgfont", "relig", "landsALL", "lands_sc", "lands_elem", "lands_figs",
+                 "lands_ment", "arch", "mytho", "peasant", "othgenre", "singlefig", "portrait", "still_life",
+                 "discauth", "history", "allegory", "pastorale", "winningbiddertype","endbuyer","Interm","type_intermed","Shape", "materialCat","other")
+paintings_cat <- train %>% gather(key = "category", value = "value",-logprice)
+paintings_discrete <- paintings_cat %>% filter(category %in% discrete_var)
+paintings_continuous <- paintings_cat %>% filter(!category %in% discrete_var) %>% na.omit()
+
+#year should be categorical?
+
+ggplot(paintings_continuous,  aes(x=value,y=logprice,group=value))+
+  facet_wrap(~category, scales = "free") +
+  geom_point(data = paintings_continuous) 
+  
+ggplot(paintings_discrete,  aes(x=value,y=logprice,group=value))+
+  facet_wrap(~category, scales = "free") +
+  geom_boxplot(data = paintings_discrete) + 
+  labs(title = "Discrete Variables verses logprice")
+
+ggplot(paintings_continuous,  aes(x=value,y=logprice,group=value))+
+  facet_wrap(~category, scales = "free") +
+  geom_point(data = paintings_continuous) +
+  labs(title = "Continuous Variables verses logprice")
+
+ggpairs(train %>% select(-discrete_var), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Pairwise Comparisons of Continuous Variables")
+```
+transformation on nfigures, surface_rnd?
+deal with na problems
