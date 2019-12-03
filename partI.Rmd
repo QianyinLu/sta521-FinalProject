@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(GGally)
 library(car)
+library(dplyr)
 ```
 
 ```{r read data}
@@ -27,9 +28,10 @@ summary(total)
 ```
 ### Removing NAs for continuous variables 
 ```{r}
-total %>% select(Height_in,Width_in,Surface)%>%filter(is.na(Height_in)&is.na(Width_in)&is.na(Surface))
+total %>%filter(nfigures == 0)
+total
 ```
-
+chi-square models 
 
 some thoughts about cleaning data
 sale - drop, dealer initial not important
@@ -44,19 +46,20 @@ Diam_in - too many NA's, can be removed
 Diam_in - diameter of painting in inches
 Surface_rnd - surface of round painting;
 can all be removed)
+shape - regroup shape
 
 ```{r clean data}
 total.clean <- total %>% 
   select(-c(sale,lot, subject, author, winningbidder, material, mat,count,price,Diam_in))%>%
   #categorical
-  mutate(winningbiddertype = as.factor(recode(na_if(winningbiddertype,""),.missing = 'X')),
-         endbuyer = as.factor(recode(na_if(endbuyer,""), .missing = 'X')),
-         Interm = as.factor(recode(as.character(total$Interm), .missing = "X")), #treat NA as X, there are some character NA and real NA, so transform to character first 
-         type_intermed = as.factor(recode(na_if(type_intermed,""), .missing = 'X')),
-         Shape = as.factor(recode(na_if(Shape, ""), .missing = 'X',
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),.missing = 'NA')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""), .missing = 'X')),
+         Interm = as.factor(dplyr::recode(as.character(total$Interm), .missing = "X")), #treat NA as X, there are some character NA and real NA, so transform to character first 
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,""), .missing = 'X')),
+         Shape = as.factor(dplyr::recode(na_if(Shape, ""), .missing = 'X',
                                   `ovale` = 'oval',
                                   `ronde` = 'round')),
-         materialCat = as.factor(recode(na_if(materialCat,""), .missing = 'X')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""), .missing = 'X')),
          
   )%>%
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, 
@@ -109,4 +112,13 @@ deal with na problems
 train_continuous <- train%>%select(-discrete_var)
 power_trans = car::powerTransform(train_continuous[,-3], family = "bcPower")
 ```
+
+
+
+
+
+
+
+
+
 
