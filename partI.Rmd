@@ -65,6 +65,7 @@ summary(paint)
 paint_train <- paint%>%filter(!is.na(logprice))
 paint_test <-paint%>%filter(is.na(logprice))
 ```
+
 For categorical variables: 
  - *sale* includes repetitive information as year and dealer.
  - *lot* has similar information as *position*, while *position* connveys more useful information in terms of %, to control for size of sale.
@@ -74,7 +75,7 @@ For categorical variables:
  - *history*, *original*, *type_intermed*, *Shape* and *pastorale* have serious **class imbalance** problem, where certain value is seldomly observed. So we will discard these variables in modeling.    
  - The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded.  
  - *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
- - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
+ - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis. Thus we will only keep *origin_cat* since it contains less levels.  
  - At glance, strong predictors include *dealer*, *diff_origin*, *discauth*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *figures*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *lands_elem*.  
 
 For continuous variables: 
