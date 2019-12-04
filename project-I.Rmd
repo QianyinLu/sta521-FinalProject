@@ -46,6 +46,14 @@ paint <- rbind(paintings_train, paintings_test)
 # Fix position > 1
 paint$position[paintings_train$position > 1] <- paint$position[paint$position > 1]/100
 
+# Fix material type
+paint$material[str_detect(paint$material, "^bois")] <- "bois"
+paint$material[str_detect(paint$material, "^cuivre")] <- "cuivre"
+paint$material[str_detect(paint$material, "^tableau")] <- "tableau"
+paint$material[str_detect(paint$material, "^toile")] <- "toile"
+
+
+
 # regroup some categorical variables
 paint <- paint %>%
   mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
@@ -59,17 +67,28 @@ paint <- paint %>%
          type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
                                           .missing='Unknown')),
          Shape = as.factor(dplyr::recode(na_if(Shape,""),
-                                  .missing = 'Unknown',
+                                  .missing = 'unknown',
                                   'squ_rect' = 'squ_rect',
                                   .default = 'other')),
-         mat = as.factor(dplyr::recode(na_if(mat,""),
-                      .missing = 'Unknown',
-                      'n/a' = 'Unknown')),
          materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
-                                        .missing = 'Unknown')),
+                                        .missing = 'unknown')),
          material = as.factor(dplyr::recode(na_if(material,""),
-                                     .missing = 'NA',
-                                     'n/a' = 'NA'))
+                                     .missing = 'unknown',
+                                     'n/a' = 'unknown', 
+                                     'bois' = 'bois', 
+                                     'cuivre' = 'cuivre', 
+                                     'tableau' = 'tableau', 
+                                     'toile' = 'toile', 
+                                     .default = 'other')), 
+         mat = as.factor(dplyr::recode(na_if(mat,""),
+                                     .missing = 'unknown',
+                                     'n/a' = 'unknown', 
+                                     'b'='wood', 
+                                     'c'='copper',
+                                     'o'='other', 
+                                     't'='canvas', 
+                                     'ta'='canvas',  
+                                     .default = 'other'))
          ) %>% 
   # change variables into appropriate format
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
@@ -84,7 +103,7 @@ paint <- paint %>%
 
 # delete unnecessary variables
 paint <- paint %>% 
-  dplyr::select(-c("sale", "lot", "subject", "author", "authorstandard"))
+  dplyr::select(-c(sale, lot, count, subject, author, authorstandard, winningbidder))
 
 #summary(paint)
 
@@ -139,7 +158,12 @@ To start with, we first check on the emprirical distribution of the response var
   
 ```{r chi}
 tab_ori <- table(paint_train$origin_author, paint_train$origin_cat)
-chi <- chisq.test(tab_ori)
+kable(tab_ori)
+chi1 <- chisq.test(tab_ori)
+tab_material <- table(paint_train$material, paint_train$materialCat)
+chi2 <- chisq.test(tab_material)
+tab_mat <- table(paint_train$mat, paint_train$materialCat)
+chi3 <- chisq.test(tab_mat)
 ```
   
 Then we plot *logprice* against all continuous and categorical variables respectively. Here are some findings.     
@@ -148,7 +172,7 @@ For categorical variables:
  
  - *history*, *original*, *type_intermed*, *Shape* and *pastorale* have serious **class imbalance** problem, where certain value is seldomly observed. So we will discard these variables in modeling.    
  - The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded.  
- - *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
+ - After cleaning the data, *mat*, *material* and *materialCat* record duplicate features. We will only keep *mat* in future analysis since it contains all the information in the other two.  
  - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
  - At glance, strong predictors includde *dealer*, *diff_origin*, *discauth*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *figures*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *lands_elem*.  
 
@@ -158,14 +182,43 @@ For continuous variables:
  
  - *other* and *position* have most of their values gather around 0 and we cannot observe any obvious pattern.  
  - *Diam-in* and *Surface_Rnd* contain too many NA's and therefore should not be inlcuded in the model.  
- - *Surface* and *Surface_Rect* contain duplicate information, and *Surface* contains all the information in *Surface_Rect*. So we will only keep *Surface*. *Height_in* and *Width_in* are discarded for similar reasoning.  
+ - *Surface*, *Surface_Rnd* and *Surface_Rect* contain duplicate information, and *Surface* contains all the information in *Surface_Rect*. So we will only keep *Surface*. *Height_in* and *Width_in* are discarded for similar reasoning.  
  - *nfigures* might need transformations, so I will exponentiate it in the model. 
 
+ 
+ 
+```{r ggpairs}
+paint2 <- paint %>% 
+  dplyr::select(-c(price, origin_author, authorstyle, material, materialCat, history, original, pastorale, other))
+paint_train2 <- paint2[1:1500, ]
+paint_test2 <- paint2[1501:2250, ]
+ggpairs(paint_train2, columns = c(7, 1:6), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 8:13), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 14:19), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 20:25), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 26:31), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 32:37), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train2, columns = c(7, 38:43), 
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+```
   
 ## Model Selection
   
 ```{r model1, echo=FALSE}
-model_ini = lm(logprice ~ year + exp(nfigures) + origin_author + 
+model_ini = lm(logprice ~ year + log(nfigures + 0.01) + origin_author + 
                  dealer + discauth + endbuyer + Interm + Surface + 
                  materialCat + diff_origin + engraved + prevcoll + 
                  origin_cat + paired + portrait + figures + finished + 
