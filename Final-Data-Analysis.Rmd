@@ -52,11 +52,11 @@ summary(paintings_train)
 
 There are a few changes that can be made immediately to the data to help with the modeling process:
 
-The 'sale' column is merely a combination of 'dealer' and 'year', and could be dropped immediately, as it introduces no additional information. 
+The 'sale' column is merely a combination of 'dealer' and 'year', and could be dropped immediately, as it introduces no additional information. *DROP SALE*
 
-'Lot' would make sense to be a numeric, however, there are some entries with letters in them. Coercing to numeric would cause errors.  
+'Lot' would make sense to be a numeric, however, there are some entries with letters in them. Coercing to numeric would cause errors.  *DROP LOT*
 
-'position' is supposed to be a percentage, yet there are a few entries over 1. This implies that there is a data misentry problem here, and these entries should be divided by 100 to be correctly formatted. 
+'position' is supposed to be a percentage, yet there are a few entries over 1. This implies that there is a data misentry problem here, and these entries should be divided by 100 to be correctly formatted. *CONSIDER POSITION AFTER FIX*
 
 'dealer' should be a factor with 4 levels.
 
@@ -64,7 +64,7 @@ The 'sale' column is merely a combination of 'dealer' and 'year', and could be d
 
 'originauthor' should be a factor with 7 levels.
 
-'origin_cat' should be a factor with 5 levels.
+'origin_cat' should be a factor with 5 levels. *CHOOSE ONE BETWEEN AUTHOR AND CAT AND PNTG*
 
 'school_pntg' should be a factor with 7 levels.
 
@@ -163,6 +163,8 @@ paintings_train <- paintings_train %>%
                                      .missing = 'NA',
                                      'n/a' = 'NA'))
          )
+
+table(paintings_train$Shape)
 ```
 ### Comments after cleaning data:
 
@@ -183,7 +185,6 @@ ggplot(train.gathered, aes(x = value, y = logprice, colour = variable, group = v
   facet_wrap(vars(variable), scales = "free_x") +
   guides(color = "none") +
   geom_boxplot(data = train.gathered)
-
 ```
 
 
@@ -211,6 +212,20 @@ save(predictions, file="predict-test.Rdata")
 Once you are satisfied with your model, provide a write up of your data analysis project in a new Rmd file/pdf file: `Part-I-Writeup.Rmd` by copying over salient parts of your R notebook. The written assignment consists of five parts:
 
 1. Introduction: Summary of problem and objectives (5 points)
+
+Our team of esteemed statisticians was recently hired by a prestigious Art historian for a consulting project. We were asked to help build a predictive model in exchange for an A on our STA 521 Final Exam. After much discussion, our team accepted the historian's offer. 
+
+We were given the task of predicting paintings' selling prices at auctions in 18th century Paris. To accomplish this, we used a dataset containing information about each painting's buyer, seller, painter, and characteristics of the painting. These variables were all possible predictor variables in modeling the response variable, the selling price of a painting. 
+
+There were two primary objectives in our analysis:
+
+1) To determine which variables (or interactions) drove the price of a painting
+2) To determine which paintings were overpriced or and which were underpriced. 
+
+After arriving at a final model, we are able to answer these primary questions. Any variables that appear in the model will be important in driving painting prices, and observing residuals will enable us to determine if a painting was over or underpriced. 
+
+We had 1,500 observations to train the model on, along with 750 observations held out as a testing set. There were a total of 59 variables in the dataset, both categorical and continuous.  
+
 
 2. Exploratory data analysis (10 points): must include three correctly labeled graphs and an explanation that highlight the most important features that went into your model building.
 
