@@ -21,98 +21,115 @@ load("paintings_test.Rdata")
 ```
 
 ### Data cleaning 
-```{r}
-#merge training and testing data
-total <- rbind(paintings_test,paintings_train)
-summary(total)
+
+```{r data-manipulation}
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'U')),
+        ## Interm = as.factor(dplyr::recode(Interm,
+                                ##   .missing = 0,
+                                 ##  `0` = 0,
+                                ##   `1` = 1)),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'Unknown',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'Unknown'))
+         ) %>% 
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  mutate_at(vars(price), as.numeric) %>%
+  mutate(Surface = dplyr::recode(Surface,.missing=0)) %>%
+  filter(Surface!=0)
+# delete unnecessary variables
+paint <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author", "authorstandard","winningbidder","Interm","material","mat","Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in"))
+summary(paint)
+paint_train <- paint%>%filter(!is.na(logprice))
+paint_test <-paint%>%filter(is.na(logprice))
 ```
-### Removing NAs for continuous variables 
-```{r}
-total %>%filter(nfigures == 0)
-total
-```
-chi-square models 
+For categorical variables: 
+ - *sale* includes repetitive information as year and dealer.
+ - *lot* has similar information as *position*, while *position* connveys more useful information in terms of %, to control for size of sale.
+ - *diff_origin* serves as a predictor indicating whether or not the origin of dealer and author are the same. We believe this predictor should not have influence on auction price so we drop this predictor.
+ - *count* has value of 1 for all data points so we believe this feature has no effect.
+ - *author*,*authorstandard*,*subject*, *winningbidder*are categorical data, but they have too many levels, similar information can be achieved from other features with fewer levels.
+ - *history*, *original*, *type_intermed*, *Shape* and *pastorale* have serious **class imbalance** problem, where certain value is seldomly observed. So we will discard these variables in modeling.    
+ - The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded.  
+ - *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
+ - *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
+ - At glance, strong predictors include *dealer*, *diff_origin*, *discauth*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *figures*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *lands_elem*.  
 
-some thoughts about cleaning data
-sale - drop, dealer initial not important
-lot - drop, just an identification number 
-position - questionable, not sure, take as numeric
-subject - too many categories, chose to remove
-authorstandard - can possibly remove as well(try BIC criterion)
-material/mat - too many categories, repeat with cat, so remove
-other - not sure what this variable is, but treat as categorical
-Diam_in - too many NA's, can be removed
-(Surface_rect - surface of rectangular painting in squared inches
-Diam_in - diameter of painting in inches
-Surface_rnd - surface of round painting;
-can all be removed)
-shape - regroup shape
-
-```{r clean data}
-total.clean <- total %>% 
-  select(-c(sale,lot, subject, author, winningbidder, material, mat,count,price,Diam_in))%>%
-  #categorical
-  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),.missing = 'NA')),
-         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""), .missing = 'X')),
-         Interm = as.factor(dplyr::recode(as.character(total$Interm), .missing = "X")), #treat NA as X, there are some character NA and real NA, so transform to character first 
-         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,""), .missing = 'X')),
-         Shape = as.factor(dplyr::recode(na_if(Shape, ""), .missing = 'X',
-                                  `ovale` = 'oval',
-                                  `ronde` = 'round')),
-         materialCat = as.factor(dplyr::recode(na_if(materialCat,""), .missing = 'X')),
-         
-  )%>%
-  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, 
-                 authorstandard, authorstyle, engraved, original, prevcoll, othartist, paired,
-                 figures, finished, lrgfont, relig, landsALL, lands_sc, lands_elem, lands_figs,
-                 lands_ment, arch, mytho, peasant, othgenre, singlefig, portrait, still_life,
-                 discauth, history, allegory, pastorale,other), as.factor) 
-  
-summary(total.clean)
-#separate train and test set
-train <- total.clean %>% filter(!is.na(logprice))
-test <- total.clean %>% filter(is.na(logprice))
-```
+For continuous variables: 
+ 
+ - *other* and *position* have most of their values gather around 0 and we cannot observe any obvious pattern.  
+ - *Diam-in* and *Surface_Rnd* contain too many NA's and therefore should not be inlcuded in the model.  
+ - *Surface* and *Surface_Rect* contain duplicate information, and *Surface* contains all the information in *Surface_Rect*. So we will only keep *Surface*. *Height_in* and *Width_in* are discarded for similar reasoning. Note that I removed rows that *Surface* either is missing or equals 0.
+ - *nfigures* might need transformations, so I will exponentiate it in the model. 
 
 
-
-```{r}
-discrete_var <- c("dealer", "origin_author", "origin_cat", "school_pntg", "diff_origin", "artistliving", 
-                 "authorstandard", "authorstyle", "engraved", "original", "prevcoll", "othartist", "paired",
-                 "figures", "finished", "lrgfont", "relig", "landsALL", "lands_sc", "lands_elem", "lands_figs",
-                 "lands_ment", "arch", "mytho", "peasant", "othgenre", "singlefig", "portrait", "still_life",
-                 "discauth", "history", "allegory", "pastorale", "winningbiddertype","endbuyer","Interm","type_intermed","Shape", "materialCat","other")
-paintings_cat <- train %>% gather(key = "category", value = "value",-logprice)
-paintings_discrete <- paintings_cat %>% filter(category %in% discrete_var)
-paintings_continuous <- paintings_cat %>% filter(!category %in% discrete_var) %>% na.omit()
-
-#year should be categorical?
-
-#whether the relationship is linear or not?  
-ggplot(paintings_discrete,  aes(x=value,y=logprice,group=value))+
-  facet_wrap(~category, scales = "free") +
-  geom_boxplot(data = paintings_discrete) + 
-  labs(title = "Discrete Variables verses logprice")
-
-ggplot(paintings_continuous,  aes(x=value,y=logprice,group=value))+
-  facet_wrap(~category, scales = "free") +
-  geom_point(data = paintings_continuous) +
-  labs(title = "Continuous Variables verses logprice")
-
-#do we need to transform certain variables
-ggpairs(train %>% select(-discrete_var), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
+```{r eda}
+hist1 <- ggplot(paint_train, aes(x = logprice)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `logprice`")
+hist2 <- ggplot(paint_train, aes(x = price)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `price`")
+grid.arrange(hist1, hist2, ncol = 2)
+# create dataframe for eda plots
+ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3,1:2, 5:6)), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     labs(title = "Pairwise Comparisons of Continuous Variables")
-```
-transformation on nfigures, surface_rnd?
-deal with na problems
 
-### Model Selection
+```
+choose log transform to surface, nfigures
+##nfigures and others may need to add 1 before transformation ???
+
+
 ```{r}
-train_continuous <- train%>%select(-discrete_var)
-power_trans = car::powerTransform(train_continuous[,-3], family = "bcPower")
+paint.train_plt_trans <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>%
+                         dplyr::select(-price) %>%
+  filter(Surface!=0)%>%
+  mutate(Surface = log(Surface)) %>%
+  tidyr::gather(key = "variables", value = "values", -logprice)
+ggplot(paint.train_plt_trans, aes(x = values, y = logprice))+
+geom_point(alpha = 0.5, size = 0.7)+
+facet_wrap(~variables, scales = "free_x")+
+labs(x = "value", y = "logprice",
+title = "logprice vs Transformed Quantitative Predictors") +
+theme_linedraw()+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+
+
+
+```{r}
+paint_train_trans <- paint_train%>%select(-price)%>%
+  mutate(Surface = log(Surface))
+model0 <- lm(logprice~(.)^2, data=paint_train_trans)
+step(model0,k=2,trace = F)
+```
 
 
 
