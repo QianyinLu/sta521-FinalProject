@@ -1,0 +1,88 @@
+---
+title: "Part-I-Writeup"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(ISLR))
+suppressMessages(library(arm))
+suppressMessages(library(ggplot2))
+suppressMessages(library(tidyverse))
+suppressMessages(library(GGally))
+library(knitr)
+library(BAS)
+```
+
+### EDA final version
+
+```{r}
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                                     .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                            .missing = 'U')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                          .missing = 0,
+                                          `0` = 0,
+                                          `1` = 1)), 
+         authorstyle = as.factor(dplyr::recode(authorstyle,
+                                               'n/a' = 'No Info',
+                                               .default = 'With Info')),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                                 .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                         .missing = 'Unknown',
+                                         'squ_rect' = 'squ_rect',
+                                         .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                               .missing = 'Unknown')),
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0`= 0,
+                                            .default = 1))
+  ) %>% 
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  mutate_at(vars(price), as.numeric) 
+# delete unnecessary variables
+paint <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author", "authorstandard","winningbidder","other","pastorale","allegory","history", "lands_ment","original", "type_intermed","origin_author","material","mat","figures","singlefig","Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in"))
+summary(paint)
+#notice some NAs and 0s in Surface variable, needs to impute them with median
+paint <- paint%>% mutate(Surface = dplyr::recode(Surface,.missing = 270.4))
+paint$Surface[paint$Surface==0] <- 270.4
+summary(paint)
+paint_train <- paint%>%filter(!is.na(logprice))
+paint_test <-paint%>%filter(is.na(logprice))
+dim(paint_train)
+```
+
+```{r transformation of Surface}
+paint_train_trans <- paint_train %>%
+  mutate(Surface = log(Surface))
+```
+
+```{r build model, cache=T}
+model.0 = lm(logprice~.,data = paint_train_trans)
+summary(model.0)
+model.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
+summary(model.bic)
+# use the result of bic to build new model for aic
+model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
+model.aic = step(model.1, k=2, trace=F)
+summary(model.aic)
+```
