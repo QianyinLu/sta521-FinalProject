@@ -12,6 +12,7 @@ suppressMessages(library(ggplot2))
 suppressMessages(library(tidyverse))
 suppressMessages(library(GGally))
 library(knitr)
+library(BAS)
 ```
 
 
@@ -89,7 +90,7 @@ paintings_train.1 = paintings_train %>%
          origin_author = factor(origin_author),
          origin_cat = factor(origin_cat),
          school_pntg = factor(school_pntg),
-         winningbiddertype = factor(if_else(winningbiddertype=='','unknown',winningbiddertype)),
+         winningbiddertype = factor(if_else(winningbiddertype==''|winningbiddertype=='X' ,'unknown',winningbiddertype)),
          endbuyer = factor(if_else(endbuyer=='','unknown',endbuyer)),
          Shape = factor(if_else(Shape=='','unknown',Shape)),
          mat = factor(if_else(mat=='','n/a',mat)),
@@ -99,7 +100,6 @@ paintings_train.1 = paintings_train %>%
          Interm,Surface,
          logprice)
 ```
-
 
 
 ```{r}
@@ -137,6 +137,13 @@ ggplot(plt_cont, aes(x = value, y = logprice))+
 ```
 
 
+```{r}
+paintings_train.1 = paintings_train.1 %>% 
+  mutate_at(names(paintings_train.1)[9:34],as.factor)
+
+summary(paintings_train.1)
+```
+
 
 ### Build your first model
 
@@ -144,13 +151,13 @@ In the first model predict the auction price `price` using the transformation `l
 
 
 ```{r model1, echo=TRUE}
-model1 = lm(logprice ~ 1, data=paintings_train)
+model1 = lm(logprice ~ year+origin_cat+winningbiddertype+engraved+prevcoll+paired+finished+, data=paintings_train)
 ```
 
 ```{r}
-model2 = 
+model2 = lm(logprice ~ .-Interm-Surface, data = paintings_train.1)
+summary(model2)
 ```
-
 
 Save predictions and intervals.  
 ```{r predict-model1, echo=FALSE}
