@@ -69,22 +69,45 @@ paint_test <-paint%>%filter(is.na(logprice))
 dim(paint_train)
 ```
 
-```{r transformation of Surface}
-paint_train_trans <- paint_train %>%
-  dplyr::select(-price) %>% 
-  dplyr::mutate(Surface = log(Surface))
+# variables selection and model selection
+```{r build model, cache=T}
+paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig, landsALL))%>%
+  mutate(Surface = log(Surface))
+model0 <- lm(logprice~(.), data=paint_train_trans)
+n = nrow(paint_train_trans)
+#use bic to select the variables 
+step(model0,k=log(n),trace = F)
+#model without interaction
+model1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + 
+                                     endbuyer + Interm + Surface + engraved + prevcoll + 
+                                     paired + finished + lrgfont + lands_sc + discauth), 
+             data = paint_train_trans)
+#prepare for BIC
+#model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+#    paired + finished + lrgfont + lands_sc + discauth)^2, data = #paint_train_trans)
+#use this step to have a look :step(model2, k = 2, trace = F)
+#the following model is modified based on BIC selection, I deleted some interactions, feel free to check whether the interaction make sense
+finalmodel <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+    + dealer:Interm + dealer:discauth + year:artistliving + year:endbuyer + year:Surface+ year:discauth+ artistliving:authorstyle + artistliving:lands_sc + artistliving:discauth + authorstyle:Surface + endbuyer:finished + 
+    endbuyer:discauth + Interm:Surface + Interm:prevcoll + Interm:lrgfont + 
+    Interm:discauth + Surface:discauth + prevcoll:finished + 
+    paired:finished + paired:lrgfont + paired:lands_sc + paired:discauth + 
+    lands_sc:discauth, data = paint_train_trans)
+summary(finalmodel)
 ```
 
-```{r build model, cache=T}
-model.0 = lm(logprice~.,data = paint_train_trans)
-summary(model.0)
-model.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
-summary(model.bic)
-# use the result of bic to build new model for aic
-model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
-    authorstyle + winningbiddertype + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + portrait + still_life + 
-    discauth)^2, data = paint_train_trans)
-model.aic = step(model.1, k=2, trace=F)
-summary(model.aic)
+# finalmodel deleted some interactions
+```{r}
+finalmodel <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+    + dealer:Interm + dealer:discauth + year:artistliving + year:endbuyer + year:Surface+ year:discauth+ artistliving:authorstyle + artistliving:discauth + authorstyle:Surface + endbuyer:finished + endbuyer:discauth + Interm:Surface + Interm:prevcoll + Interm:lrgfont + 
+    Interm:discauth + Surface:discauth + prevcoll:finished + 
+    paired:finished + paired:lrgfont + paired:discauth, data = paint_train_trans)
+summary(finalmodel)
 ```
+
+I deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
+
