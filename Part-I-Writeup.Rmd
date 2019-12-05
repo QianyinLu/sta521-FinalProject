@@ -1,0 +1,197 @@
+---
+title: "STA 521 - Final Project Part I"
+date: "December 7th, 2019"
+author: "FP-Team 01: Qianyin Lu, George Lindner, Chenxi Wu, Yi Mi"
+output: pdf_document
+---
+
+```{r packages, echo = FALSE, warning=FALSE,message=FALSE}
+library(tidyverse)
+library(GGally)
+library(car)
+library(dplyr)
+library(stringr)
+```
+
+## Write-Up
+
+### 1. Introduction: Summary of problem and objectives
+
+Our team of esteemed statisticians was recently hired by a prestigious Art historian for a consulting project. We were asked to help build a predictive model in exchange for an A on our STA 521 Final Exam. After much discussion, our team accepted the historian's offer. 
+
+We were given the task of predicting paintings' selling prices at auctions in 18th century Paris. To accomplish this, we used a dataset containing information about each painting's buyer, seller, painter, and characteristics of the painting. These variables were all possible predictor variables in modeling the response variable, the selling price of a painting. 
+
+There were two primary objectives in our analysis:
+
+1) To determine which variables (or interactions) drove the price of a painting
+2) To determine which paintings were overpriced or and which were underpriced. 
+
+After arriving at a final model, we are able to answer these primary questions. Any variables that appear in the model will be important in driving painting prices, and observing residuals will enable us to determine if a painting was over or underpriced. 
+
+We had 1,500 observations to train the model on, along with 750 observations held out as a testing set. There were a total of 59 variables in the dataset, both categorical and continuous.
+
+### 2. Exploratory Data Analysis:
+```{r read-data, echo=FALSE}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
+```{r To Do #1, echo = FALSE}
+
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'U')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         authorstyle = dplyr::recode(authorstyle,
+                                      "n/a" = 0,
+                                      .default = 1),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'other',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'other'))) %>% 
+
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  
+  mutate(Surface = dplyr::recode(Surface,
+                                     `0` = median(Surface,na.rm=T),
+                                 .missing = median(Surface, na.rm=T))) %>%
+  mutate(origin_cat = dplyr::recode(origin_cat,
+                                    "S" = "O")) %>%
+  mutate(nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1)))
+
+# delete unnecessary variables
+
+paint <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author",
+                   "authorstandard","winningbidder","type_intermed","material","mat",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","still_life",
+                   "portrait", "school_pntg", "origin_author", 
+                   "winningbiddertype", "figures", "singlefig", "price"))
+
+# Split back into train and test
+paint_train <- paint %>% filter(!is.na(logprice))
+paint_test <- paint %>% filter(is.na(logprice))
+```
+
+```{r eda, echo = FALSE, warning=FALSE,message=FALSE}
+
+# create dataframe for eda plots
+eda_cat <- cbind(logprice = paint_train$logprice, 
+                 paint_train[, map_chr(paint_train, class) == "factor"])
+
+eda_con <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3, 1:4))
+
+eda_cat <- eda_cat %>% 
+  gather(key = "categorical", value = "value", -logprice)
+eda_con <- eda_con %>% 
+  gather(key = "numeric", value  ="value", -logprice)
+# split eda_cat since there are too many variables
+eda_cat1 <- eda_cat[c(1:19500), ]
+eda_cat2 <- eda_cat[c(19501:37500), ]
+ggplot(eda_cat1, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "Log Price vs Categorical Predictors") +
+  theme_bw()
+
+ggplot(eda_cat2, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "Log Price vs Categorical Predictors") +
+  theme_bw()
+
+ggplot(eda_con, aes(x = value, y = logprice)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  stat_smooth(method = "lm") +
+  facet_wrap(~numeric, scales = "free") +
+  labs(x = "", title = "Log Price vs Continuous Predictors") +
+  theme_bw()
+
+
+ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3,1:4)), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Pairwise Comparisons of Continuous Variables")
+
+```
+
+```{r, echo = FALSE, warning=FALSE,message=FALSE}
+
+paint.train_plt_trans <- paint_train[, map_chr(paint_train, class) == "numeric" |
+
+                         map_chr(paint_train, class) == "integer"] %>%
+
+  filter(Surface!=0)%>%
+
+  mutate('log(Surface)' = log(Surface)) %>%
+  select(-Surface) %>%
+  tidyr::gather(key = "variables", value = "values", -logprice)
+
+ggplot(paint.train_plt_trans, aes(x = values, y = logprice))+
+
+geom_point(alpha = 0.5, size = 0.7)+
+stat_smooth(method='lm')+
+
+facet_wrap(~variables, scales = "free_x")+
+
+labs(x = "value", y = "logprice",
+
+title = "Log Price vs Continuous Predictors") +
+
+theme_bw()+
+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+- from the EDA plot, decided to further drop *othartist*,*mytho*,*relig* and *landsALL*
+
+
+### 3. Development and Assessment of Initial Model:
+
+```{r model1, echo=FALSE, eval = FALSE}
+model0 <- lm(logprice~(.)^2, data = paint_train)
+
+model1 <- step(model0,k=2,trace = F)
+```
+
+```{r predict-model1, echo=FALSE, eval = FALSE}
+predictions = as.data.frame(
+  exp(predict(model1, newdata=paintings_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
+
+### 4. Summary and Conclusions:
+
+
