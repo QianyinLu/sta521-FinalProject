@@ -166,11 +166,13 @@ ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
 ```
 
 
+- from the EDA plot, decided to further drop *othartist*,*mytho*,*relig* and *landsALL*
+- Pairwise --> transform *Surface*
+- *position* looks pretty random too 
 
 ```{r}
 paint.train_plt_trans <- paint_train[, map_chr(paint_train, class) == "numeric" |
                          map_chr(paint_train, class) == "integer"] %>%
-                         dplyr::select(-price) %>%
   filter(Surface!=0)%>%
   mutate(Surface = log(Surface)) %>%
   tidyr::gather(key = "variables", value = "values", -logprice)
@@ -187,7 +189,7 @@ theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 ```{r}
-paint_train_trans <- paint_train%>%select(-price)%>%
+paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig, landsALL, position))%>%
   mutate(Surface = log(Surface))
 model0 <- lm(logprice~(.)^2, data=paint_train_trans)
 step(model0,k=2,trace = F)
