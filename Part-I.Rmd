@@ -71,7 +71,8 @@ dim(paint_train)
 
 ```{r transformation of Surface}
 paint_train_trans <- paint_train %>%
-  mutate(Surface = log(Surface))
+  dplyr::select(-price) %>% 
+  dplyr::mutate(Surface = log(Surface))
 ```
 
 ```{r build model, cache=T}
@@ -81,8 +82,9 @@ model.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
 summary(model.bic)
 # use the result of bic to build new model for aic
 model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
-    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
+    authorstyle + winningbiddertype + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + portrait + still_life + 
+    discauth)^2, data = paint_train_trans)
 model.aic = step(model.1, k=2, trace=F)
 summary(model.aic)
 ```
