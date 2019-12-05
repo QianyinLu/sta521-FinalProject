@@ -144,6 +144,142 @@ paintings_train.1 = paintings_train.1 %>%
 summary(paintings_train.1)
 ```
 
+### EDA final version
+
+```{r}
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                                     .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                            .missing = 'U')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                          .missing = 0,
+                                          `0` = 0,
+                                          `1` = 1)), 
+         authorstyle = as.factor(dplyr::recode(authorstyle,
+                                               'n/a' = 'No Info',
+                                               .default = 'With Info')),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                                 .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                         .missing = 'Unknown',
+                                         'squ_rect' = 'squ_rect',
+                                         .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                               .missing = 'Unknown')),
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0`= 0,
+                                            .default = 1))
+  ) %>% 
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  mutate_at(vars(price), as.numeric) 
+# delete unnecessary variables
+paint <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author", "authorstandard","winningbidder","other","pastorale","allegory","history", "lands_ment","original", "type_intermed","origin_author","material","mat","figures","singlefig","Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in"))
+summary(paint)
+#notice some NAs and 0s in Surface variable, needs to impute them with median
+paint <- paint%>% mutate(Surface = dplyr::recode(Surface,.missing = 270.4))
+paint$Surface[paint$Surface==0] <- 270.4
+summary(paint)
+paint_train <- paint%>%filter(!is.na(logprice))
+paint_test <-paint%>%filter(is.na(logprice))
+dim(paint_train)
+```
+
+```{r}
+eda_test <- cbind(logprice = paint_train$logprice, paint_train[,c(16,21,33)]) %>%
+  gather(key = "cat", value = "value", -logprice)
+ggplot(eda_test, aes(x = value, y = logprice, colour = cat)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~cat, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+```
+
+```{r eda}
+hist1 <- ggplot(paint_train, aes(x = logprice)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `logprice`")
+hist2 <- ggplot(paint_train, aes(x = price)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `price`")
+# create dataframe for eda plots
+eda_cat <- cbind(logprice = paint_train$logprice, 
+                 paint_train[, map_chr(paint_train, class) == "factor"])
+dim(eda_cat)
+eda_con <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3, 1:2, 5))
+eda_cat <- eda_cat %>% 
+  gather(key = "categorical", value = "value", -logprice)
+eda_con <- eda_con %>% 
+  gather(key = "numeric", value  ="value", -logprice)
+# split eda_cat since there are too many variables
+eda_cat1 <- eda_cat[c(1:22500), ]
+eda_cat2 <- eda_cat[c(22501:43500), ]
+ggplot(eda_cat1, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+ggplot(eda_cat2, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+ggplot(eda_con, aes(x = value, y = logprice)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  stat_smooth(method = "lm") +
+  facet_wrap(~numeric, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
+ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3,1:2, 5)), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Pairwise Comparisons of Continuous Variables")
+```
+
+
+
+```{r}
+paint.train_plt_trans <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>%
+                         dplyr::select(-price) %>%
+  filter(Surface!=0)%>%
+  mutate(Surface = log(Surface)) %>%
+  tidyr::gather(key = "variables", value = "values", -logprice)
+ggplot(paint.train_plt_trans, aes(x = values, y = logprice))+
+geom_point(alpha = 0.5, size = 0.7)+
+facet_wrap(~variables, scales = "free_x")+
+labs(x = "value", y = "logprice",
+title = "logprice vs Transformed Quantitative Predictors") +
+theme_linedraw()+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+```{r}
+paint_train_trans <- paint_train%>%dplyr::select(-price)%>%
+  mutate(Surface = log(Surface))
+model0 <- lm(logprice~(.)^2, data=paint_train_trans)
+step(model0,k=2,trace = F)
+```
 
 ### Build your first model
 
