@@ -196,27 +196,40 @@ n = nrow(paint_train_trans)
 #use bic to select the variables 
 step(model0,k=log(n),trace = F)
 #model without interaction
-model1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+model0.1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
     paired + finished + lrgfont + lands_sc + discauth), data = paint_train_trans)
 #prepare for BIC
 #model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
 #    paired + finished + lrgfont + lands_sc + discauth)^2, data = #paint_train_trans)
 #use this step to have a look :step(model2, k = 2, trace = F)
 #the following model is modified based on BIC selection, I deleted some interactions, feel free to check whether the interaction make sense
-finalmodel <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
-    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
-    + dealer:Interm + dealer:discauth + year:artistliving + year:endbuyer + year:Surface+ year:discauth+ artistliving:authorstyle + artistliving:lands_sc + artistliving:discauth + authorstyle:Surface + endbuyer:finished + 
-    endbuyer:discauth + Interm:Surface + Interm:prevcoll + Interm:lrgfont + 
-    Interm:discauth + Surface:discauth + prevcoll:finished + 
-    paired:finished + paired:lrgfont + paired:lands_sc + paired:discauth + 
-    lands_sc:discauth, data = paint_train_trans)
+model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+                   authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+                   + dealer:Interm + dealer:discauth + year:artistliving + 
+                   year:endbuyer + year:Surface+ year:discauth + 
+                   artistliving:authorstyle + artistliving:discauth + 
+                   authorstyle:Surface + endbuyer:finished + 
+                   endbuyer:discauth + Interm:Surface + Interm:prevcoll + 
+                   Interm:lrgfont + Interm:discauth + Surface:discauth + 
+                   prevcoll:finished + paired:finished + 
+                   paired:lrgfont + paired:discauth, data = paint_train_trans)
+
 summary(finalmodel)
+
+exp(predict(finalmodel, newdata = paint_test%>% mutate(Surface = log(Surface)), interval = "pred"))
 ```
 
 
 
-
+```{r predict-model2, echo=FALSE}
+# replace model1 with model2 here
+predictions = as.data.frame(
+  exp(predict(model1, newdata=paint_test %>% mutate(Surface = log(Surface))
+, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
 
 
 
