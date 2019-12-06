@@ -220,15 +220,45 @@ summary(model0.1)
 
 ```
 
+```{r}
+g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+    prevcoll + origin_cat + engraved + finished + discauth + 
+    dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
+      log(Surface):discauth, data = paint_train)
+summary(g_interact)
+options(scipen=999)
+tb_final <- broom::tidy(g_interact, conf.level=0.95,
+                   conf.int = TRUE, exponentiate=T)
+new<-kable(tb_final, digits = 3,
+      caption="Coefficient Summary for Final Model") %>%
+  kable_styling(latex_options = "hold_position")
 
+new.data <- paint_train%>%select(Surface,lrgfont, Interm, authorstyle,
+    prevcoll,origin_cat,engraved,finished,discauth,
+    dealer, lands_sc, endbuyer, year)%>%mutate(lrgfont=0, Interm=0, authorstyle=0,
+    prevcoll=0,origin_cat='D/FL',engraved=0,finished=0,discauth=0,
+    dealer='J', lands_sc=0, endbuyer='B')
+predict(g_interact, newdata = new.data)
+```
+
+```{r}
+ggplot() +
+  geom_errorbar(data = new, aes(x = var, ymin = lwr, ymax = upr), size = 0.3) +
+  geom_hline(aes(yintercept = 0), color = "red") +
+  coord_flip() +
+  labs(subtitle = "95 % confidence intervals for the final model")
+```
 
 ```{r predict-model2, echo=FALSE}
 # replace model1 with model2 here
 predictions = as.data.frame(
-  exp(predict(model1, newdata=paint_test %>% mutate(Surface = log(Surface)), interval = "pred")))
+  exp(predict(g_interact, newdata=paint_test %>% mutate(Surface = log(Surface)), interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
 
+```{r}
+1.1^log(1.423)-1
+```
 
 
 
