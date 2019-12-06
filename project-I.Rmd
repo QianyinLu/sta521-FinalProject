@@ -105,10 +105,10 @@ paint <- paint %>%
 # delete unnecessary variables
 paint <- paint %>%
   dplyr::select(-c(sale, lot, count, subject, author, authorstandard, winningbidder, other, Diam_in, Surface_Rnd, history, original, type_intermed, pastorale))
-#summary(paint)
-
-paint_train <- paint[1:1500, ]
-paint_test <- paint[1501:2250, ]
+#notice some NAs and 0s in Surface variable, needs to impute them with median
+paint<- paint%>% mutate(Surface = dplyr::recode(Surface,.missing = median(paint$Surface, na.rm = T)))
+paint$Surface[paint$Surface==0] <- median(paint$Surface, na.rm = T)
+summary(paint)
 ```
 
 
@@ -118,14 +118,10 @@ paint_test <- paint[1501:2250, ]
 # paint_preselect <- paint %>% 
 #   dplyr::select(-c("sale", "lot","school_pntg","origin_author","diff_origin", "count","subject", "author", "authorstandard","winningbidder","winningbiddertype","other","pastorale","allegory","history", "lands_ment","original","portrait", "still_life","type_intermed","material","mat","Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","price"))
 
-#notice some NAs and 0s in Surface variable, needs to impute them with median
-paint_train <- paint_train%>% 
-  mutate(Surface = dplyr::recode(Surface,.missing = median(paint$Surface, na.rm = T)))
-paint_train$Surface[paint_train$Surface==0] <- median(paint$Surface, na.rm = T)
 # summary(paint_train)
-paint_train <- paint_train%>%
+paint_train <- paint%>%
   filter(!is.na(logprice))
-paint_test <-paint_train%>%
+paint_test <-paint%>%
   filter(is.na(logprice))
 ```
 
@@ -317,7 +313,6 @@ ggplot() +
 
 ```{r test-set-trans}
 paint_test_trans <- paint_test %>% 
-  dplyr::select(-c(othartist, mytho, relig, landsALL)) %>%
   dplyr::mutate(Surface = log(Surface))
 ```
 
@@ -325,7 +320,7 @@ paint_test_trans <- paint_test %>%
 
 ```{r predict-model1, echo=FALSE}
 predictions = as.data.frame(
-  exp(predict(model1, newdata=paint_test, 
+  exp(predict(model1, newdata=paint_test_trans, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
