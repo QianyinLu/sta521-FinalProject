@@ -270,8 +270,7 @@ We deleted some interactions for the follow reasons. We deleted the interactions
 g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
     dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
-      log(Surface):discauth + year:endbuyer + 
-      endbuyer:dealer, data = paint_train)
+      log(Surface):discauth + year:endbuyer, data = paint_train)
 
 par(mfrow = c(2,2))
 plot(g_interact)
