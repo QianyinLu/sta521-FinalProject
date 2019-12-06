@@ -177,27 +177,112 @@ theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression. 
 
+# variables selection and model selection
 
-```{r model1, echo=TRUE}
-model_ini = lm(logprice ~ year + origin_author + dealer + endbuyer + Interm + Surface + materialCat + diff_origin + engraved + prevcoll + origin_cat + paired + portrait + figures + finished + lrgfont + lands_sc + peasant, data=paint_train)
-summary(model_ini)
+```{r}
+# data preselection
+paint_train_trans <- paint_train %>% 
+  dplyr::select(-c(price, othartist, mytho, relig, landsALL)) %>%
+  dplyr::mutate(Surface = log(Surface))
 
-ini_aic <- step(model_ini, trace = F)
-summary(ini_aic)
+# use bic to select the variables which could be used to build interaction terms
+model.0 <- lm(logprice~., data = paint_train_trans)
+summary(model.0)
 
-model_int <- lm(logprice ~ year + origin_author + dealer + endbuyer + 
-    Interm + Surface + materialCat + diff_origin + engraved + 
-    prevcoll + paired + portrait + figures + finished + lrgfont + 
-    lands_sc + (year + Surface):(origin_author + dealer + endbuyer + 
-    Interm + materialCat + diff_origin + engraved + 
-    prevcoll + paired + portrait + figures + finished + lrgfont + 
-    lands_sc) + year:Surface, data = paint_train)
-summary(model_int)
-model1 <- step(model_int, trace = F)
-summary(model1)
-par(mfrow = c(2, 2))
-plot(model1)
+model.0.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
+summary(model.0.bic)
+
+# use the result fomula of bic to find interactions with aic
+model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
+                           authorstyle + winningbiddertype + Surface + engraved + prevcoll + 
+                           paired + finished + lrgfont + lands_sc + portrait + still_life + 
+                           discauth)^2, data = paint_train_trans)
+model.1.aic = step(model.1, k = 2, trace = F)
+summary(model.1.aic)
+
 ```
+
+We first remove some variables because theyr have very similar levels and thus may not have significant influence on the response.
+
+We use BIC to select the important variables. And we use the BIC result to build a new model and construct all interaction terms and then we use AIC to determine the final model.(may not appear in the write-up for bic part)
+
+We deleted some interactions for the follow reasons. We deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
+
+# finalmodel 
+
+```{r}
+model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+                   authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+                   + dealer:Interm + dealer:discauth + year:artistliving + 
+                   year:endbuyer + year:Surface+ year:discauth + 
+                   artistliving:authorstyle + artistliving:discauth + 
+                   authorstyle:Surface + endbuyer:finished + 
+                   endbuyer:discauth + Interm:Surface + Interm:prevcoll + 
+                   Interm:lrgfont + Interm:discauth + Surface:discauth + 
+                   prevcoll:finished + paired:finished + 
+                   paired:lrgfont + paired:discauth, data = paint_train_trans)
+summary(model1)
+```
+
+
+```{r}
+# plot
+par(mfrow = c(2, 2))
+plot(model1, ask = FALSE)
+```
+
+The plot identified leverage points 218 and 1129 which should be removed. We removed these two points and refit the model.
+
+# finalmodel refit
+
+```{r}
+paint_train_trans = paint_train_trans[-c(218,1129),]
+model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+                   authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+                   + dealer:Interm + dealer:discauth + year:artistliving + 
+                   year:endbuyer + year:Surface+ year:discauth + 
+                   artistliving:authorstyle + artistliving:discauth + 
+                   authorstyle:Surface + endbuyer:finished + 
+                   endbuyer:discauth + Interm:Surface + Interm:prevcoll + 
+                   Interm:lrgfont + Interm:discauth + Surface:discauth + 
+                   prevcoll:finished + paired:finished + 
+                   paired:lrgfont + paired:discauth, data = paint_train_trans)
+summary(model1)
+```
+
+```{r, warning=F}
+# plot
+par(mfrow = c(2, 2))
+plot(model1, ask = FALSE)
+# Coefs and C.I.
+df.lm <- data.frame(var = names(model1$coefficients),
+                    coef = model1$coefficients,
+                    lwr = confint(model1)[,1],
+                    upr = confint(model1)[,2],
+                    row.names = NULL)
+kable(df.lm, digits = 3, caption = "Coefs and C.I. for the final model")
+# plot of c.i.
+ggplot() +
+  geom_errorbar(data = df.lm, aes(x = var, ymin = lwr, ymax = upr), size = 0.3) +
+  geom_hline(aes(yintercept = 0), color = "red") +
+  coord_flip() +
+  labs(subtitle = "95 % confidence intervals for the final model")
+```
+
+```{r}
+car::outlierTest(model1)
+```
+
+We see that one point has a large rstudent residual, but given the number of points in the model this is not a very wild residual value, as indicated by the Bonferonni-Adjusted P value of 0.69, indicating that this is not a significantly distant outlier.
+
+```{r}
+max(cooks.distance(model1))
+```
+
+We see that the largest Cook’s distance is much less than one, indicating that there are no points with very large leverage in this model. From the plot wee that the points with large cook's distance do not appear to be significantly distant from the other points in the dataset, and their influence is not undue. 
+
 
 
 Save predictions and intervals.  
