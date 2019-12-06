@@ -315,3 +315,6 @@ save(predictions, file="predict-test.Rdata")
 ## 4. Summary and Conclusions:
 
 
+### Limitations 
+
+There are a few limitations of our model. A major limitation is not having sufficient coverage for test predictions. We only have a 65% coverage rate for our 95% prediction interval. Another limitation is the year variable. While this linear regression might work for this short time frame, this analysis suggests that older paintings are worth less than newer paintings. However, this doesn't capture the 'antique market' for classic pieces of art, which are extremely expensive. This limitation is clear when observing the intercept. The intercept assumes the year is 0, which is not logical for this analysis.  
