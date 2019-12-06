@@ -13,7 +13,7 @@ library(dplyr)
 library(stringr)
 library(ggpubr)
 library(knitr)
-library(kableExtra)
+#library(kableExtra)
 ```
 
 ## 1. Introduction: Summary of problem and objectives
@@ -238,79 +238,48 @@ kable(ten_var, caption = "10 Most Important Predictor Variables, from EDA")
 With the data cleaned and important variables identified, we move to the next step of the process: modeling the data.
 
 
-### 3. Development and Assessment of Initial Model:
+## 3. Development and Assessment of Initial Model:
 
-```{r Cassies Work}
+### Model Development
+
+We considered three additional variables in addition to the ten most important variables identified through EDA. These variables were *lands_sc*, *endbuyer*, and *year*. We chose to include these three variables because the EDA suggested that they might add some predictive power to our model. Approximately 62.2% of the variation in *logprice* can be explained by the predictors in our initial model, according to the summary output below. Next, we used step-wise variable seleciton with AIC as our criteria to ensure that each variable reduced RSS enough to justify including the variable in the model. Step-wise AIC selection returned our full model, indicating that we did a good job selecting predictor variables through the EDA. 
+
+Next, we considered interaction terms for our predictor variables. We again used intuition as our method for introducing interactions in the model. Interactions that we considered were *authorstyle* with *log(Surface)*, *Interm* with *log(Surface)*, and *discauth* with *log(Surface)*. We chose the first term because both the style of a painting and the size of the painting could be important in determining the price. Various styles of paintings might increase in value at different rates as the size of the painting changes. The second interaction term considers the dealer engaging with the authenticity of the painting and the size of the painting. Authentic paintings could increase in value as the size increases at a different rate than non-authentic paintings. We also thought that whether an intermediary was involved could be an important interaction with the size of the painting. 
 
 
-
-george_model.0 <- lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + prevcoll + origin_cat + engraved + finished + discauth + dealer + lands_sc + lands_figs + othgenre +
-                endbuyer + nfigures + Shape + year, data = paint_train)
-summary(model.0)
-
-model.0.bic = step(model.0, k=log(nrow(paint_train)), trace = F)
-
-summary(model.0.bic)
-
+```{r Model Development, echo = FALSE, warning=FALSE,message=FALSE}
 
 model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
     dealer + lands_sc + endbuyer + year, data = paint_train)
 
 model.1.aic = step(model.1, k = 2, trace = F)
-
-summary(model.1.aic)
-
 ```
 
+We fit our initial model on these predictors and interaction terms. Included below are our model plots and the summary of the model. 
 
-We first remove some variables because they have very similar levels and thus may not have significant influence on the response.
+### Model Plots
 
-We use BIC to select the important variables. And we use the BIC result to build a new model and construct all interaction terms and then we use AIC to determine the final model.(may not appear in the write-up for bic part)
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
 
-
-We deleted some interactions for the follow reasons. We deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
-
-```{r}
-
-g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+final_model <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
-    dealer + lands_sc + endbuyer + year +authorstyle:log(Surface) + Interm:log(Surface) +
-      Interm:prevcoll +
-      Interm:lrgfont +
-      log(Surface):discauth +
-      paired:lrgfont, data = paint_train)
+    dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
+      log(Surface):discauth, data = paint_train)
 
-plot(g_interact)
-
-summary(g_interact)
+par(mfrow = c(2,2))
+plot(final_model)
 ```
 
-### Model Assessment
+### Model Summary
 
-```{r res plot, fig.asp=1, eval = FALSE}
-# plot
-par(mfrow = c(2, 2))
-plot(model1, ask = FALSE)
+```{r summary of model, echo = FALSE}
+summary(final_model)
 ```
 
+From the residual vs. fitted plot, we see that our residuals are randomly distributed with mean 0. There is no heteroskedacity satisfying the constant variance assumption of linear regression. Our QQ plot appears approximately normal, as well. The residuals vs fitted plot shows that there are no high leverage points, influential points, or outliers. We can see from the summary output that approximately 62.8% of the variation in *logprice* can be explained by our model. 
 
-
-```{r, eval = FALSE}
-outlier <- car::outlierTest(model1)
-outlier <- rbind.data.frame(outlier)
-kable_styling(kable(outlier), position='center')
-```
-
-We see that one point has a large rstudent residual, but given the number of points in the model this is not a very wild residual value, as indicated by the Bonferonni-Adjusted P value of 0.69, indicating that this is not a significantly distant outlier.
-
-  
-We also checked the largest Cook’s distance, which is much less than one, indicating that there are no points with very large leverage in this model. From the plot wee that the points with large cook's distance do not appear to be significantly distant from the other points in the dataset, and their influence is not undue. 
-
-## Sumnmary and conclusions
-
-```{r, eval = FALSE}
-final_model <- model1
+```{r, eval = FALSE, echo = FALSE}
 options(scipen=999)
 
 tb_final <- broom::tidy(final_model, conf.level=0.95,
@@ -321,10 +290,10 @@ kable(tb_final, digits = 3,
   kable_styling(latex_options = "hold_position")
 
 # Coefs and C.I.
-df.lm <- data.frame(var = names(model1$coefficients),
-                    coef = model1$coefficients,
-                    lwr = confint(model1)[,1],
-                    upr = confint(model1)[,2],
+df.lm <- data.frame(var = names(final_model$coefficients),
+                    coef = final_model$coefficients,
+                    lwr = confint(final_model)[,1],
+                    upr = confint(final_model)[,2],
                     row.names = NULL)
 # plot of c.i.
 
@@ -335,14 +304,17 @@ ggplot() +
   labs(subtitle = "95 % confidence intervals for the final model")
 ```
 
-```{r predict-model1, echo=FALSE, eval = FALSE}
+```{r predict-model1, echo=FALSE}
 predictions = as.data.frame(
-  exp(predict(g_interact, newdata=paint_test, 
+  exp(predict(final_model, newdata=paint_test, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
 
 
-### 4. Summary and Conclusions:
+## 4. Summary and Conclusions:
 
 
+### Limitations 
+
+There are a few limitations of our model. A major limitation is not having sufficient coverage for test predictions. We only have a 65% coverage rate for our 95% prediction interval. Another limitation is the year variable. While this linear regression might work for this short time frame, this analysis suggests that older paintings are worth less than newer paintings. However, this doesn't capture the 'antique market' for classic pieces of art, which are extremely expensive. This limitation is clear when observing the intercept. The intercept assumes the year is 0, which is not logical for this analysis.  
