@@ -238,35 +238,29 @@ kable(ten_var, caption = "10 Most Important Predictor Variables, from EDA")
 With the data cleaned and important variables identified, we move to the next step of the process: modeling the data.
 
 
-### 3. Development and Assessment of Initial Model:
+## 3. Development and Assessment of Initial Model:
 
-```{r Cassies Work}
+### Model Development
+
+We considered three additional variables in addition to the ten most important variables identified through EDA. These variables were *lands_sc*, *endbuyer*, and *year*. We chose to include these three variables because the EDA suggested that they might add some predictive power to our model. Approximately 62.2% of the variation in *logprice* can be explained by the predictors in our initial model, according to the summary output below. Next, we used step-wise variable seleciton with AIC as our criteria to ensure that each variable reduced RSS enough to justify including the variable in the model. Step-wise AIC selection returned our full model, indicating that we did a good job selecting predictor variables through the EDA. 
+
+Next, we considered interaction terms for our predictor variables. We again used intuition as our method for introducing interactions in the model. 
 
 
 
-george_model.0 <- lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + prevcoll + origin_cat + engraved + finished + discauth + dealer + lands_sc + lands_figs + othgenre +
-                endbuyer + nfigures + Shape + year, data = paint_train)
-summary(model.0)
-
-model.0.bic = step(model.0, k=log(nrow(paint_train)), trace = F)
-
-summary(model.0.bic)
-
+```{r Model Development}
 
 model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
     dealer + lands_sc + endbuyer + year, data = paint_train)
-
+#summary(model.1)
 model.1.aic = step(model.1, k = 2, trace = F)
 
-summary(model.1.aic)
+#summary(model.1.aic)
 
 ```
 
 
-We first remove some variables because they have very similar levels and thus may not have significant influence on the response.
-
-We use BIC to select the important variables. And we use the BIC result to build a new model and construct all interaction terms and then we use AIC to determine the final model.(may not appear in the write-up for bic part)
 
 
 We deleted some interactions for the follow reasons. We deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
@@ -275,12 +269,11 @@ We deleted some interactions for the follow reasons. We deleted the interactions
 
 g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
-    dealer + lands_sc + endbuyer + year +authorstyle:log(Surface) + Interm:log(Surface) +
-      Interm:prevcoll +
-      Interm:lrgfont +
-      log(Surface):discauth +
-      paired:lrgfont, data = paint_train)
+    dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
+      log(Surface):discauth + year:endbuyer + 
+      endbuyer:dealer, data = paint_train)
 
+par(mfrow = c(2,2))
 plot(g_interact)
 
 summary(g_interact)
