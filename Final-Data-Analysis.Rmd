@@ -183,9 +183,8 @@ paint <- paint %>%
                  still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
   
   mutate(Surface = dplyr::recode(Surface,
-                                 .missing=0)) %>%
-  mutate(Surface = dplyr::recode(Surface,
-                                     `0` = median(Surface))) %>%
+                                     `0` = median(Surface,na.rm=T),
+                                 .missing = median(Surface, na.rm=T))) %>%
   mutate(origin_cat = dplyr::recode(origin_cat,
                                     "S" = "O")) %>%
   mutate(nfigures = as.factor(dplyr::recode(nfigures,
@@ -236,7 +235,9 @@ In the first model predict the auction price `price` using the transformation `l
 
 
 ```{r model1, echo=TRUE}
-model1 = lm(logprice ~ 1, data=paintings_train)
+model0 <- lm(logprice~(.)^2, data = paint_train)
+
+model1 <- step(model0,k=2,trace = F)
 ```
 
 
