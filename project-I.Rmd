@@ -147,7 +147,7 @@ ggplot(eda_con, aes(x = value, y = logprice)) +
   geom_point(size = 0.5, alpha = 0.5) +
   stat_smooth(method = "lm") +
   facet_wrap(~numeric, scales = "free") +
-  labs(x = "", title = "logprice vs categorical predictors") +
+  labs(x = "", title = "logprice vs continuous predictors") +
   theme_bw()
 ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
                          map_chr(paint_train, class) == "integer"] %>% 
