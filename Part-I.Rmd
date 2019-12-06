@@ -80,18 +80,18 @@ paint_train_trans <- paint_train %>%
 
 # use bic to select the variables which could be used to build interaction terms
 model.0 <- lm(logprice~., data = paint_train_trans)
-summary(model.0)
+#summary(model.0)
 
-model.0.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
-summary(model.0.bic)
+#model.0.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
+#summary(model.0.bic)
 
 # use the result fomula of bic to find interactions with aic
 model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
                            authorstyle + winningbiddertype + Surface + engraved + prevcoll + 
                            paired + finished + lrgfont + lands_sc + portrait + still_life + 
                            discauth)^2, data = paint_train_trans)
-model.1.aic = step(model.1, k = 2, trace = F)
-summary(model.1.aic)
+#model.1.aic = step(model.1, k = 2, trace = F)
+#summary(model.1.aic)
 
 ```
 
@@ -176,3 +176,32 @@ max(cooks.distance(model1))
 
 We see that the largest Cook’s distance is much less than one, indicating that there are no points with very large leverage in this model. From the plot wee that the points with large cook's distance do not appear to be significantly distant from the other points in the dataset, and their influence is not undue. 
 
+
+```{r}
+model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+                   authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+                   + dealer:Interm + dealer:discauth + year:artistliving + 
+                   year:endbuyer + year:discauth + 
+                   artistliving:authorstyle + artistliving:discauth + 
+                   authorstyle:Surface + 
+                   Interm:prevcoll + 
+                  Interm:discauth + 
+                   prevcoll:finished + paired:finished + 
+                   paired:lrgfont + paired:discauth, data = paint_train_trans)
+```
+
+```{r}
+paint_test_trans <- paint_test %>% 
+  dplyr::select(-c(othartist, mytho, relig, landsALL)) %>%
+  dplyr::mutate(Surface = log(Surface))
+
+```
+
+```{r predict-model-final, echo=FALSE, include=FALSE}
+# change model1 or update as needed
+predictions = as.data.frame(
+  exp(predict(model1, newdata=paint_test_trans, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
