@@ -199,9 +199,8 @@ step(model0,k=log(n),trace = F)
 model0.1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
     paired + finished + lrgfont + lands_sc + discauth), data = paint_train_trans)
 #prepare for BIC
-#model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-#    paired + finished + lrgfont + lands_sc + discauth)^2, data = #paint_train_trans)
-#use this step to have a look :step(model2, k = 2, trace = F)
+model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
+step(model2, k = log(n), trace = F)
 #the following model is modified based on BIC selection, I deleted some interactions, feel free to check whether the interaction make sense
 model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
                    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
@@ -214,10 +213,14 @@ model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving +
                    Interm:lrgfont + Interm:discauth + Surface:discauth + 
                    prevcoll:finished + paired:finished + 
                    paired:lrgfont + paired:discauth, data = paint_train_trans)
+model2 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+    dealer:discauth + year:endbuyer + year:discauth + 
+    prevcoll:finished + paired:lrgfont, data = paint_train_trans)
 
-summary(finalmodel)
+summary(model2)
 
-exp(predict(finalmodel, newdata = paint_test%>% mutate(Surface = log(Surface)), interval = "pred"))
 ```
 
 
@@ -226,8 +229,7 @@ exp(predict(finalmodel, newdata = paint_test%>% mutate(Surface = log(Surface)), 
 # replace model1 with model2 here
 predictions = as.data.frame(
   exp(predict(model1, newdata=paint_test %>% mutate(Surface = log(Surface))
-, 
-              interval = "pred")))
+, interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
 
