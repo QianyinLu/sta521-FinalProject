@@ -28,6 +28,7 @@ library(xtable)
 library(kableExtra)
 library(broom)
 library(car)
+library(GGally)
 ```
 
 ```{r read-data}
@@ -104,6 +105,11 @@ paint <- paint %>%
 # delete unnecessary variables
 paint <- paint %>% 
   dplyr::select(-c(sale, lot, count, subject, author, authorstandard, winningbidder))
+  
+paint<- paint%>% 
+  mutate(Surface = dplyr::recode(Surface,.missing = median(paint$Surface, na.rm = T)))
+paint$Surface[paint$Surface==0] <- median(paint$Surface, na.rm = T)
+
 
 #summary(paint)
 
