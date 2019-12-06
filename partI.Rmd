@@ -190,6 +190,7 @@ theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```{r}
 paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig, landsALL))%>%
   mutate(Surface = log(Surface))
+dim(paint_train_trans)
 model0 <- lm(logprice~(.), data=paint_train_trans)
 n = nrow(paint_train_trans)
 #use bic to select the variables 
