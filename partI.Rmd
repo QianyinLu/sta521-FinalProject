@@ -199,10 +199,8 @@ model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving +
                    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
                    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
                    + dealer:Interm + dealer:discauth + year:artistliving + 
-                   year:endbuyer + year:Surface+ year:discauth + 
-                   artistliving:authorstyle + artistliving:discauth + 
+                   + year:discauth + artistliving:authorstyle + artistliving:discauth + 
                    authorstyle:Surface + endbuyer:finished + 
-                   endbuyer:discauth + Interm:Surface + Interm:prevcoll + 
                    Interm:lrgfont + Interm:discauth + Surface:discauth + 
                    prevcoll:finished + paired:finished + 
                    paired:lrgfont + paired:discauth, data = paint_train_trans)
@@ -219,7 +217,7 @@ model2 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving +
     dealer:discauth + year:endbuyer + year:discauth + 
     prevcoll:finished + paired:lrgfont, data = paint_train_trans)
 
-summary(model2)
+summary(model1)
 
 ```
 
@@ -228,7 +226,7 @@ summary(model2)
 ```{r predict-model2, echo=FALSE}
 # replace model1 with model2 here
 predictions = as.data.frame(
-  exp(predict(model2, newdata=paint_test %>% mutate(Surface = log(Surface)), interval = "pred")))
+  exp(predict(model1, newdata=paint_test %>% mutate(Surface = log(Surface)), interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
 
