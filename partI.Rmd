@@ -118,13 +118,6 @@ For continuous variables:
 
 
 ```{r eda}
-hist1 <- ggplot(paint_train, aes(x = logprice)) +
-  geom_histogram(fill = "light blue") +
-  labs(title = "Empirical distribution for `logprice`")
-hist2 <- ggplot(paint_train, aes(x = price)) +
-  geom_histogram(fill = "light blue") +
-  labs(title = "Empirical distribution for `price`")
-
 # create dataframe for eda plots
 eda_cat <- cbind(logprice = paint_train$logprice, 
                  paint_train[, map_chr(paint_train, class) == "factor"])
