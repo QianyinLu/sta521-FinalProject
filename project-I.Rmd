@@ -244,14 +244,6 @@ model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving +
                    paired:lrgfont + paired:discauth, data = paint_train_trans)
 ```
 
-```{r}
-model2 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
-    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
-    dealer:discauth + year:endbuyer + year:discauth + 
-    prevcoll:finished + paired:lrgfont, data = paint_train_trans)
-```
-
 
 ## Model Assessment
 
@@ -329,7 +321,7 @@ paint_test_trans <- paint_test %>%
 
 ```{r predict-model1, echo=FALSE}
 predictions = as.data.frame(
-  exp(predict(model2, newdata=paint_test_trans, 
+  exp(predict(model1, newdata=paint_test_trans, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
