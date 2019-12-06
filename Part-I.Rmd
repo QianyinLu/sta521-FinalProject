@@ -123,22 +123,9 @@ summary(model1)
 # plot
 par(mfrow = c(2, 2))
 plot(model1, ask = FALSE)
-# Coefs and C.I.
-df.lm <- data.frame(var = names(model1$coefficients),
-                    coef = model1$coefficients,
-                    lwr = confint(model1)[,1],
-                    upr = confint(model1)[,2],
-                    row.names = NULL)
-kable(df.lm, digits = 3, caption = "Coefs and C.I. for the final model")
-# plot of c.i.
-ggplot() +
-  geom_errorbar(data = df.lm, aes(x = var, ymin = lwr, ymax = upr), size = 0.3) +
-  geom_hline(aes(yintercept = 0), color = "red") +
-  coord_flip() +
-  labs(subtitle = "95 % confidence intervals for the final model")
 ```
 
-The plot identified leverage points 218 and 1129 which should be removed.
+The plot identified leverage points 218 and 1129 which should be removed. We removed these two points and refit the model.
 
 # finalmodel refit
 
