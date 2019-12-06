@@ -267,32 +267,21 @@ We deleted some interactions for the follow reasons. We deleted the interactions
 
 ```{r}
 
-g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+final_model <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
     dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
-      log(Surface):discauth + year:endbuyer, data = paint_train)
+      log(Surface):discauth, data = paint_train)
 
 par(mfrow = c(2,2))
-plot(g_interact)
+plot(final_model)
 
-summary(g_interact)
+summary(final_model)
 ```
 
 ### Model Assessment
 
-```{r res plot, fig.asp=1, eval = FALSE}
-# plot
-par(mfrow = c(2, 2))
-plot(model1, ask = FALSE)
-```
 
 
-
-```{r, eval = FALSE}
-outlier <- car::outlierTest(model1)
-outlier <- rbind.data.frame(outlier)
-kable_styling(kable(outlier), position='center')
-```
 
 We see that one point has a large rstudent residual, but given the number of points in the model this is not a very wild residual value, as indicated by the Bonferonni-Adjusted P value of 0.69, indicating that this is not a significantly distant outlier.
 
