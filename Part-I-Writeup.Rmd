@@ -242,12 +242,7 @@ With the data cleaned and important variables identified, we move to the next st
 
 ```{r Cassies Work}
 
-# use bic to select the variables which could be used to build interaction terms
-#model.0 <- lm(logprice ~ position + dealer + year + origin_cat + artistliving + 
-#    authorstyle + endbuyer + Interm + Shape + log(Surface) + materialCat + 
-#    nfigures + engraved + prevcoll + paired + finished + lrgfont + 
-##    lands_sc + lands_elem + lands_figs + arch + peasant + othgenre + 
-#    discauth, data = paint_train)
+
 
 george_model.0 <- lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + prevcoll + origin_cat + engraved + finished + discauth + dealer + lands_sc + lands_figs + othgenre +
                 endbuyer + nfigures + Shape + year, data = paint_train)
@@ -257,11 +252,6 @@ model.0.bic = step(model.0, k=log(nrow(paint_train)), trace = F)
 
 summary(model.0.bic)
 
-# use the resulting fomula of bic to find interactions with aic
-
-#model.1 = lm(formula = logprice ~ (dealer + year + origin_cat + artistliving + 
-#    authorstyle + endbuyer + Interm + log(Surface) + engraved + prevcoll + 
-#    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train)
 
 model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
@@ -270,8 +260,6 @@ model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle +
 model.1.aic = step(model.1, k = 2, trace = F)
 
 summary(model.1.aic)
-
-#plot(model.1.aic)
 
 ```
 
@@ -285,17 +273,6 @@ We deleted some interactions for the follow reasons. We deleted the interactions
 
 ```{r}
 
-#model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
-#                   authorstyle + endbuyer + Interm + log(Surface) + engraved + prevcoll +
-#                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
-#                   + dealer:Interm + dealer:discauth + year:artistliving + 
-#                   year:endbuyer + year:log(Surface) + year:discauth + 
-                   #artistliving:authorstyle + artistliving:discauth + 
-                   #authorstyle:log(Surface) + endbuyer:finished + 
-#                   endbuyer:discauth + Interm:log(Surface) + Interm:prevcoll + 
-#                   Interm:lrgfont + Interm:discauth + log(Surface):discauth + 
-#                   prevcoll:finished + paired:finished + 
-#                   paired:lrgfont + paired:discauth, data = paint_train)
 g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
     dealer + lands_sc + endbuyer + year +authorstyle:log(Surface) + Interm:log(Surface) +
