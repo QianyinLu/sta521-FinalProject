@@ -182,7 +182,7 @@ In the first model predict the auction price `price` using the transformation `l
 ```{r}
 # data preselection
 paint_train_trans <- paint_train %>% 
-  dplyr::select(-c(price, othartist, mytho, relig, landsALL)) %>%
+  dplyr::select(-c(othartist, mytho, relig, landsALL)) %>%
   dplyr::mutate(Surface = log(Surface))
 
 # use bic to select the variables which could be used to build interaction terms
@@ -193,10 +193,9 @@ model.0.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
 summary(model.0.bic)
 
 # use the result fomula of bic to find interactions with aic
-model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
-                           authorstyle + winningbiddertype + Surface + engraved + prevcoll + 
-                           paired + finished + lrgfont + lands_sc + portrait + still_life + 
-                           discauth)^2, data = paint_train_trans)
+model.1 = lm(formula = logprice ~ (dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
 model.1.aic = step(model.1, k = 2, trace = F)
 summary(model.1.aic)
 
