@@ -181,16 +181,15 @@ theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 ```{r}
-paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig, landsALL))%>%
+paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig,landsALL))%>%
   mutate(Surface = log(Surface))
 dim(paint_train_trans)
 model0 <- lm(logprice~(.), data=paint_train_trans)
 n = nrow(paint_train_trans)
 #use bic to select the variables 
-step(model0,k=log(n),trace = F)
+step(model0, k=log(n),trace = F)
 #model without interaction
-model0.1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth), data = paint_train_trans)
+model0.1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + paired + finished + lrgfont + lands_sc + discauth), data = paint_train_trans)
 #prepare for BIC
 model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
 step(model2, k = log(n), trace = F)
@@ -217,7 +216,7 @@ model2 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving +
     dealer:discauth + year:endbuyer + year:discauth + 
     prevcoll:finished + paired:lrgfont, data = paint_train_trans)
 
-summary(model1)
+summary(model0.1)
 
 ```
 
