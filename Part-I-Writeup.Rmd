@@ -12,11 +12,13 @@ library(car)
 library(dplyr)
 library(stringr)
 library(ggpubr)
+library(knitr)
+library(kableExtra)
 ```
 
 ## 1. Introduction: Summary of problem and objectives
 
-Our team of esteemed statisticians was recently hired by a prestigious Art historian for a consulting project. We were asked to help build a predictive model in exchange for an A on our STA 521 Final Exam. After much discussion, our team accepted the historian's offer. 
+Our team of esteemed statisticians was recently hired by a prestigious art historian for a consulting project. We were asked to help build a predictive model in exchange for an A on our STA 521 Final Exam. After much discussion, our team accepted the historian's offer. 
 
 We were given the task of predicting paintings' selling prices at auctions in 18th century Paris. To accomplish this, we used a dataset containing information about each painting's buyer, seller, painter, and characteristics of the painting. These variables were all possible predictor variables in modeling the response variable, the selling price of a painting. 
 
@@ -99,11 +101,13 @@ paint_train <- paint_ %>% filter(!is.na(logprice))
 paint_test <- paint_ %>% filter(is.na(logprice))
 ```
 
+### Initial Data Cleaning
+
+We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable *sale*, which is a combination of *dealer* and *year*. Additionally, there were other predictors that we deemed would not be useful for prediction, such as *count* which was 1 for every observation, or *subject* which was a short description of the content in the painting. We simplified the data by eliminating unnecessary predictors.
+
 ### Categorical Variables
 
-We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable ‘sale’, which is a combination of ‘dealer’ and ‘year’. Additionally, there were other predictors that we deemed would not be useful for prediction, such as ‘count’ which was 1 for every observation, or ‘subject’ which was a short description of the content in the painting. After simplifying the data by eliminating unnecessary predictors, we recoded each categorical variable to be a factor. 
-
-We created a visualization of the binary categorical variables to observe the balance between classes below.
+We recoded each categorical variable to be a factor. We created a visualization of the binary categorical variables to observe the balance between classes below.
 
 ### Plot 1
 
@@ -134,9 +138,9 @@ g <- g + geom_histogram(aes(fill=value),
   
 g + geom_hline(mapping = aes(yintercept = 100),  linetype = 'dashed')
 ```
-Imbalanced classes can lead to unstable estimates if the underrepresented class does not have a sufficient amount of data. This was our motivation to remove any variable that had less than an arbitrary 100 observations in a class, which is denoted by the dotted black line in our visualization above. 
+Imbalanced classes can lead to poor $\beta$ estimates if the underrepresented class does not have enough data. This was our motivation to remove any variable that had less than an arbitrary 100 observations in a class, which is denoted by the dotted black line in our visualization above. 
 
-To identify important categorical variables, we created a boxplot for each variable that compared the distribution of logPrice over every level of the factor. The results are shown below. 
+To identify important categorical variables, we created a boxplot for each variable that compared the distribution of *logprice* over every level of the factor. The results are shown below. 
 
 ### Plot 2
 
@@ -172,13 +176,13 @@ ggplot(eda_cat2, aes(x = value, y = logprice, colour = categorical)) +
 
 ```
 
-The boxplots above help us identify which variables could be important in predicting a painting's price. They also help us in our variable selection process by displaying variables that have similar prices in all of their categories. After inspecting the boxplots, we determined that 'mytho', 'landsALL', 'relig', and 'othartist' were not useful for prediction. Variables that may be important include, but are not limited to, 'lrgfont', 'Interm', 'authorstyle', and 'prevcoll'. 
+The boxplots above help us identify which variables could be important in predicting a painting's price. They also help us in our variable selection process by displaying variables that have similar prices in all of their categories. After inspecting the boxplots, we determined that *mytho*, *landsALL*, *relig*, and *othartist* were not useful for prediction. Variables that may be important include, but are not limited to, *lrgfont*, *Interm*, *authorstyle*, and *prevcoll*. 
 
 ### Quantitative Variables
 
-There are also quantitative variables in our data that could be used for prediction. Like the categorical variables, many of these predictors were redundant. For example, we were given the surface area of a painting. Additionally, we were given a column for surface area if the painting was round and a column if the painting was rectangular. We also were given the height, the width, and the diameter of the painting. We determined that all this information could be condensed to a single column, 'Surface'. 
+There are also quantitative variables in our data that could be used for prediction. Like the categorical variables, many of these predictors were redundant. For example, we were given the surface area of a painting. Additionally, we were given a variable for surface area if the painting was round and a surface area variable if the painting was rectangular. We also were given the height, the width, and the diameter of the painting. We determined that all this information could be condensed to a single variable, *Surface*. 
 
-There was missing data in our 'Surface' column that we had to address. Surface area intuitively seems like it could drive the price of a painting, so we had to develop a strategy for handling the missing observations. With the help of the plot below, we determined that imputing the median surface area size of the dataset would be a good estimation for missing values. Since the distribution of 'Surface' is so skewed, we wanted an imputation strategy that would be robust to outliers. Thus, we opted for the median over the mean.  
+There was missing data in *Surface* that we had to address. Surface area intuitively seems like it could drive the price of a painting, so we had to develop a strategy for handling the missing observations. With the help of the plot below, we determined that imputing the median surface area size of the dataset would be a good estimation for missing values. Since the distribution of *Surface* is skewed, we wanted an imputation strategy that would be robust to outliers. Thus, we opted for the median over the mean.  
 
 ### Plot 3
 
@@ -220,81 +224,146 @@ ggarrange(qnt1, qnt2,
           ncol = 1, nrow = 2)
 ```
 
-We created scatterplots to observe the relationship between our three quantitative predictor variables and the log price of a painting. The distribution of 'Surface' was skewed right and a log transformation was necessary. We plot the relationship of logprice and the transformed Surface column in the lower graph.
+We created scatterplots to observe the relationship between our three quantitative predictor variables and the log price of a painting. The distribution of *Surface* was skewed right and a log transformation was necessary. We plot the relationship of logprice and the transformed Surface column in the lower graph.
 
+After considering our EDA plots, we determined the 10 variables that we thought would be most useful in predicting *logprice*. 
+
+```{r kable important variables, echo = FALSE, message=FALSE, warning=FALSE}
+ten_var <- data.frame(Rank = seq(1,10,1), Variable = c('log(Surface)','lrgfont','Interm','authorstyle','prevcoll','origin_cat','engraved','finished','discauth','dealer'))
+
+kable(ten_var, caption = "10 Most Important Predictor Variables, from EDA")
+
+```
+
+With the data cleaned and important variables identified, we move to the next step of the process: modeling the data.
 
 
 ### 3. Development and Assessment of Initial Model:
 
-```{r model1, echo=FALSE, eval = FALSE}
-model0 <- lm(logprice~(.)^2, data = paint_train)
+```{r Cassies Work}
 
-model1 <- step(model0,k=2,trace = F)
+# use bic to select the variables which could be used to build interaction terms
+#model.0 <- lm(logprice ~ position + dealer + year + origin_cat + artistliving + 
+#    authorstyle + endbuyer + Interm + Shape + log(Surface) + materialCat + 
+#    nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+##    lands_sc + lands_elem + lands_figs + arch + peasant + othgenre + 
+#    discauth, data = paint_train)
+
+george_model.0 <- lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + prevcoll + origin_cat + engraved + finished + discauth + dealer + lands_sc + lands_figs + othgenre +
+                endbuyer + nfigures + Shape + year, data = paint_train)
+summary(model.0)
+
+model.0.bic = step(model.0, k=log(nrow(paint_train)), trace = F)
+
+summary(model.0.bic)
+
+# use the resulting fomula of bic to find interactions with aic
+
+#model.1 = lm(formula = logprice ~ (dealer + year + origin_cat + artistliving + 
+#    authorstyle + endbuyer + Interm + log(Surface) + engraved + prevcoll + 
+#    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train)
+
+model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+    prevcoll + origin_cat + engraved + finished + discauth + 
+    dealer + lands_sc + endbuyer + year, data = paint_train)
+
+model.1.aic = step(model.1, k = 2, trace = F)
+
+summary(model.1.aic)
+
+#plot(model.1.aic)
+
+```
+
+
+We first remove some variables because they have very similar levels and thus may not have significant influence on the response.
+
+We use BIC to select the important variables. And we use the BIC result to build a new model and construct all interaction terms and then we use AIC to determine the final model.(may not appear in the write-up for bic part)
+
+
+We deleted some interactions for the follow reasons. We deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
+
+```{r}
+
+#model1 <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
+#                   authorstyle + endbuyer + Interm + log(Surface) + engraved + prevcoll +
+#                   paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
+#                   + dealer:Interm + dealer:discauth + year:artistliving + 
+#                   year:endbuyer + year:log(Surface) + year:discauth + 
+                   #artistliving:authorstyle + artistliving:discauth + 
+                   #authorstyle:log(Surface) + endbuyer:finished + 
+#                   endbuyer:discauth + Interm:log(Surface) + Interm:prevcoll + 
+#                   Interm:lrgfont + Interm:discauth + log(Surface):discauth + 
+#                   prevcoll:finished + paired:finished + 
+#                   paired:lrgfont + paired:discauth, data = paint_train)
+g_interact <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+    prevcoll + origin_cat + engraved + finished + discauth + 
+    dealer + lands_sc + endbuyer + year +authorstyle:log(Surface) + Interm:log(Surface) +
+      Interm:prevcoll +
+      Interm:lrgfont +
+      log(Surface):discauth +
+      paired:lrgfont, data = paint_train)
+
+plot(g_interact)
+
+summary(g_interact)
+```
+
+### Model Assessment
+
+```{r res plot, fig.asp=1, eval = FALSE}
+# plot
+par(mfrow = c(2, 2))
+plot(model1, ask = FALSE)
+```
+
+
+
+```{r, eval = FALSE}
+outlier <- car::outlierTest(model1)
+outlier <- rbind.data.frame(outlier)
+kable_styling(kable(outlier), position='center')
+```
+
+We see that one point has a large rstudent residual, but given the number of points in the model this is not a very wild residual value, as indicated by the Bonferonni-Adjusted P value of 0.69, indicating that this is not a significantly distant outlier.
+
+  
+We also checked the largest Cook’s distance, which is much less than one, indicating that there are no points with very large leverage in this model. From the plot wee that the points with large cook's distance do not appear to be significantly distant from the other points in the dataset, and their influence is not undue. 
+
+## Sumnmary and conclusions
+
+```{r, eval = FALSE}
+final_model <- model1
+options(scipen=999)
+
+tb_final <- broom::tidy(final_model, conf.level=0.95,
+                   conf.int = TRUE, exponentiate=F)
+
+kable(tb_final, digits = 3,
+      caption="Coefficient Summary for Final Model") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Coefs and C.I.
+df.lm <- data.frame(var = names(model1$coefficients),
+                    coef = model1$coefficients,
+                    lwr = confint(model1)[,1],
+                    upr = confint(model1)[,2],
+                    row.names = NULL)
+# plot of c.i.
+
+ggplot() +
+  geom_errorbar(data = df.lm, aes(x = var, ymin = lwr, ymax = upr), size = 0.3) +
+  geom_hline(aes(yintercept = 0), color = "red") +
+  coord_flip() +
+  labs(subtitle = "95 % confidence intervals for the final model")
 ```
 
 ```{r predict-model1, echo=FALSE, eval = FALSE}
 predictions = as.data.frame(
-  exp(predict(model1, newdata=paintings_test, 
+  exp(predict(g_interact, newdata=paint_test, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
-
-```{r build model, cache=T}
-
-paint_train_trans <- paint_train%>% select(-c(othartist,mytho,relig, landsALL))%>%
-  mutate(Surface = log(Surface))
-
-model0 <- lm(logprice~(.), data=paint_train_trans)
-
-n = nrow(paint_train_trans)
-
-#use bic to select the variables 
-step(model0,k=log(n),trace = F)
-
-#model without interaction
-model1 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving +authorstyle + 
-                                     endbuyer + Interm + Surface + engraved + prevcoll + 
-                                     paired + finished + lrgfont + lands_sc + discauth), 
-             data = paint_train_trans)
-
-#prepare for BIC
-
-# model2 <- lm(formula = logprice ~ (dealer + year + origin_cat + artistliving + authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-#    paired + finished + lrgfont + lands_sc + discauth)^2, data = #paint_train_trans)
-
-# use this step to have a look : step(model2, k = 2, trace = F)
-
-# the following model is modified based on BIC selection, I deleted some interactions, feel free to check whether the interaction make sense
-
-finalmodel <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
-    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
-    dealer:Interm + dealer:discauth + year:artistliving + year:endbuyer + year:Surface + year:discauth+ artistliving:authorstyle + artistliving:lands_sc + artistliving:discauth + authorstyle:Surface + endbuyer:finished + 
-endbuyer:discauth + Interm:Surface + Interm:prevcoll + Interm:lrgfont + 
-Interm:discauth + Surface:discauth + prevcoll:finished + 
-paired:finished + paired:lrgfont + paired:lands_sc + paired:discauth + 
-lands_sc:discauth, data = paint_train_trans)
-
-summary(finalmodel)
-
-```
-
-# finalmodel deleted some interactions
-
-```{r}
-
-finalmodel <- lm(formula = logprice ~ dealer + year + origin_cat + artistliving + 
-    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
-    paired + finished + lrgfont + lands_sc + discauth + dealer:year + 
-      dealer:Interm + dealer:discauth + year:artistliving + year:endbuyer + year:Surface + year:discauth + artistliving:authorstyle + artistliving:discauth + authorstyle:Surface + endbuyer:finished + endbuyer:discauth + Interm:Surface + Interm:prevcoll + Interm:lrgfont + 
-    Interm:discauth + Surface:discauth + prevcoll:finished + 
-    paired:finished + paired:lrgfont + paired:discauth, data = paint_train_trans)
-
-summary(finalmodel)
-
-```
-
-I deleted the interactions `lands_sc:discauth`, `paired:lands_sc` and `artistliving:lands_sc`. First of all, for the interactions related to `lands_sc`, we think the `lands_sc`--if described as a plain landscape, is a variable describing a single dimension of painting content and we don't think it will interact with the variables describing the dealers' behaviour, the pairing of a painting, or the living info of the artists. Though the Adjusted R-squared decreased a little, from 0.66 to 0.659, we think it worth to make the model more reasonable.
 
 
 ### 4. Summary and Conclusions:
