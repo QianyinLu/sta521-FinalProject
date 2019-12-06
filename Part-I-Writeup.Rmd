@@ -86,7 +86,7 @@ paint <- paint %>%
 
 # delete unnecessary variables
 
-paint <- paint %>% 
+paint_ <- paint %>% 
   dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author",
                    "authorstandard","winningbidder","type_intermed","material","mat",
                    "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
@@ -95,17 +95,50 @@ paint <- paint %>%
                    "winningbiddertype", "figures", "singlefig", "price"))
 
 # Split back into train and test
-paint_train <- paint %>% filter(!is.na(logprice))
-paint_test <- paint %>% filter(is.na(logprice))
+paint_train <- paint_ %>% filter(!is.na(logprice))
+paint_test <- paint_ %>% filter(is.na(logprice))
 ```
 
 ### Categorical Variables
 
-We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable ‘sale’, which is a combination of ‘dealer’ and ‘year’. Additionally, there were other predictors that we deemed would not be useful for prediction, such as ‘count’ which was 1 for every observation, or ‘subject’ which was a short description of the content in the painting. After simplifying the data by eliminating unnecessary predictors, we recoded each categorical variable to be a factor. We created count tables of the categorical variables to view the balance between classes. Imbalanced classes can lead to unstable estimates if the underrepresented class does not have a sufficient amount of data. This was our motivation to remove any variable that had less than an arbitrary 100 observations in a class.
+We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable ‘sale’, which is a combination of ‘dealer’ and ‘year’. Additionally, there were other predictors that we deemed would not be useful for prediction, such as ‘count’ which was 1 for every observation, or ‘subject’ which was a short description of the content in the painting. After simplifying the data by eliminating unnecessary predictors, we recoded each categorical variable to be a factor. 
+
+We created a visualization of the binary categorical variables to observe the balance between classes below.
+
+### Plot 1
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+paint_eda3 <- paint %>% select(-c(origin_author, authorstandard, school_pntg, 
+                                  type_intermed, material, mat, sale, lot, position,
+                                  year, logprice, price, count, subject, author, 
+                                  winningbidder,Height_in, Width_in,
+                                  Surface_Rect, Diam_in, Surface_Rnd,Surface,
+                                  dealer, origin_cat, diff_origin,
+                                  winningbiddertype, endbuyer, 
+                                  Shape, materialCat))
+
+
+eda3 <- paint_eda3 %>% 
+  gather(key = "numeric", value  ="value")
+
+g <- ggplot(eda3, aes(numeric)) + scale_fill_brewer(palette = "Spectral")
+
+g <- g + geom_histogram(aes(fill=value),
+                   stat = 'count') +
+  labs(title="Class Imbalance in Categorical Variables",
+       x = 'Variable',
+       y = 'Count') +
+  scale_fill_discrete(name = "Level") + 
+  theme_classic() +
+  coord_flip() 
+  
+g + geom_hline(mapping = aes(yintercept = 100),  linetype = 'dashed')
+```
+Imbalanced classes can lead to unstable estimates if the underrepresented class does not have a sufficient amount of data. This was our motivation to remove any variable that had less than an arbitrary 100 observations in a class, which is denoted by the dotted black line in our visualization above. 
 
 To identify important categorical variables, we created a boxplot for each variable that compared the distribution of logPrice over every level of the factor. The results are shown below. 
 
-### Plot 1
+### Plot 2
 
 ```{r eda, echo = FALSE, warning=FALSE,message=FALSE}
 
@@ -147,7 +180,7 @@ There are also quantitative variables in our data that could be used for predict
 
 There was missing data in our 'Surface' column that we had to address. Surface area intuitively seems like it could drive the price of a painting, so we had to develop a strategy for handling the missing observations. With the help of the plot below, we determined that imputing the median surface area size of the dataset would be a good estimation for missing values. Since the distribution of 'Surface' is so skewed, we wanted an imputation strategy that would be robust to outliers. Thus, we opted for the median over the mean.  
 
-### Plot 2
+### Plot 3
 
 ```{r more plots, echo = FALSE, warning=FALSE, message=FALSE, eval = FALSE}
 
