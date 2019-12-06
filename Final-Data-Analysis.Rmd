@@ -272,8 +272,6 @@ theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
-
-
 ```{r}
 paint_train_trans <- paint_train%>%dplyr::select(-price)%>%
   mutate(Surface = log(Surface))
@@ -281,19 +279,46 @@ model0 <- lm(logprice~(.)^2, data=paint_train_trans)
 step(model0,k=2,trace = F)
 ```
 
+```{r, cache=T}
+model.0 = lm(logprice~.,data = paint_train_trans)
+summary(model.0)
+model.bic = step(model.0, k=log(nrow(paint_train_trans)), trace = F)
+summary(model.bic)
+#use the result of bic to build new model for aic
+model.1 = lm(logprice ~ (dealer + year + origin_cat + artistliving + 
+    authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + 
+    paired + finished + lrgfont + lands_sc + discauth)^2, data = paint_train_trans)
+model.aic = step(model.1, k=2, trace=F)
+summary(model.aic)
+```
+
 ### Build your first model
 
 In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression.  You may use stepwise model selection to simplify the model using AIC and/or BIC.  For reference, we will fit the null model to initialize the leaderboard, but replace model1 with your recommended model.
 
-
-```{r model1, echo=TRUE}
-model1 = lm(logprice ~ year+origin_cat+winningbiddertype+engraved+prevcoll+paired+finished+, data=paintings_train)
-```
-
 ```{r}
-model2 = lm(logprice ~ .-Interm-Surface, data = paintings_train.1)
-summary(model2)
+# data preselection
+paint_train_trans <- paint_train %>% 
+  select(-c(price, othartist, mytho, relig, landsALL)) %>%
+  mutate(Surface = log(Surface))
+
+# use p-value to select the variables which could be used to build interaction terms
+model.0 <- lm(logprice~., data = paint_train_trans)
+summary(model.0)
+
+model.1 = lm(logprice ~ . + (dealer + year + artistliving + authorstyle + winningbiddertype + 
+               Surface + materialCat +  engraved + prevcoll + othartist +
+               paired + lrgfont + portrait + still_life + discauth)^2 - 
+               (dealer + year + artistliving + authorstyle + winningbiddertype + 
+               Surface + materialCat +  engraved + prevcoll + othartist +
+               paired + lrgfont + portrait + still_life + discauth),
+             data = paint_train_trans)
+summary(model.1)
+
+model.1.aic = step(model.1, k = log(nrow(paint_train_trans)), trace = F)
+summary(model.1.aic)
 ```
+
 
 Save predictions and intervals.  
 ```{r predict-model1, echo=FALSE}
