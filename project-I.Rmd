@@ -1,6 +1,6 @@
 ---
 title: "Part-I Simple Model"
-author: "Chenxi Wu"
+author: "Chenxi Wu, George Lindner, Qianyin Lu, Yi Mi"
 date: "11/30/2019"
 output: 
     pdf_document:
@@ -21,8 +21,9 @@ knitr::opts_chunk$set(echo=FALSE,
 
 ```{r pakages}
 library(tidyverse)
-library(knitr)
-library(gbm)
+library(GGally)
+library(car)
+library(dplyr)
 library(kableExtra)
 ```
 
@@ -33,25 +34,84 @@ load("paintings_test.Rdata")
 
 ## Introduction
 
-## EDA
-
-Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots. 
+## Data cleaning 
 
 ```{r data-manipulation}
-paint_train <- paintings_train
-paint_test <- paintings_test
-
-# change variables into appropriate format
-paint_train <- paint_train %>% 
-  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, diff_origin, artistliving, authorstandard, authorstyle, winningbiddertype, endbuyer, Interm, type_intermed, material, mat, materialCat, Shape, engraved, original, prevcoll, othartist, paired, figures, finished, lrgfont, relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, arch, mytho, peasant, othgenre, singlefig, portrait, still_life, discauth, history, allegory, pastorale), as.factor) %>% 
-  mutate_at(vars(price), as.numeric)
-
-# delete unnecessary variables
-paint_train <- paint_train %>% 
-  dplyr::select(-c("sale", "lot", "count", "subject", "author", "authorstandard"))
-
-summary(paint_train)
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'U')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                  `0` = 0,
+                                 `1` = 1)), 
+         authorstyle = as.factor(dplyr::recode(authorstyle,
+                                               'n/a' = 0,
+                                               .default = 1)),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'Unknown',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'Unknown')),
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0`= 0,
+                                            .default = 1))
+         ) %>% 
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  mutate_at(vars(price), as.numeric) 
 ```
+
+```{r}
+#determine which variable to choose, figures, nfigures and singlefig
+paint_train_pre <- paint%>%filter(!is.na(logprice))
+eda_test <- cbind(logprice = paint_train_pre$logprice, paint_train_pre[,c(33,39,52)]) %>%
+  gather(key = "cat", value = "value", -logprice)
+ggplot(eda_test, aes(x = value, y = logprice, colour = cat)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~cat, scales = "free") +
+  labs(x = "", title = "logprice vs nfigures,figures and singlefig") +
+  theme_bw()
+```
+```{r}
+tab_ori <- table(paint_train_pre$origin_author, paint_train_pre$origin_cat)
+chi <- chisq.test(tab_ori)
+chi
+```
+
+
+```{r}
+# delete unnecessary variables
+paint_preselect <- paint %>% 
+  dplyr::select(-c("sale", "lot","school_pntg","origin_author","diff_origin", "count","subject", "author", "authorstandard","winningbidder","winningbiddertype","other","pastorale","allegory","history", "lands_ment","original","portrait", "still_life","type_intermed","material","mat","figures","singlefig","Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","price"))
+#notice some NAs and 0s in Surface variable, needs to impute them with median
+paint_preselect <- paint_preselect%>% mutate(Surface = dplyr::recode(Surface,.missing = median(paint$Surface, na.rm = T)))
+paint_preselect$Surface[paint_preselect$Surface==0] <- median(paint$Surface, na.rm = T)
+summary(paint_preselect)
+paint_train <- paint_preselect%>%filter(!is.na(logprice))
+paint_test <-paint_preselect%>%filter(is.na(logprice))
+```
+
+
+
+## EDA
+Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots. 
 
 ```{r eda}
 hist1 <- ggplot(paint_train, aes(x = logprice)) +
@@ -60,57 +120,62 @@ hist1 <- ggplot(paint_train, aes(x = logprice)) +
 hist2 <- ggplot(paint_train, aes(x = price)) +
   geom_histogram(fill = "light blue") +
   labs(title = "Empirical distribution for `price`")
-grid.arrange(hist1, hist2, ncol = 2)
-
+# create dataframe for eda plots
 eda_cat <- cbind(logprice = paint_train$logprice, 
                  paint_train[, map_chr(paint_train, class) == "factor"])
 eda_con <- paint_train[, map_chr(paint_train, class) == "numeric" |
                          map_chr(paint_train, class) == "integer"] %>% 
-  dplyr::select(c(3, 1:2, 5:12))
+  dplyr::select(c(3, 1:4))
 eda_cat <- eda_cat %>% 
-  gather(key = "categorical", value = "value", dealer:pastorale)
+  gather(key = "categorical", value = "value", -logprice)
 eda_con <- eda_con %>% 
-  gather(key = "numeric", value  ="value", position:other)
-
-ggplot(eda_cat, aes(x = value, y = logprice)) +
-  geom_point(size = 0.5, alpha = 0.3) +
-  stat_smooth(method = "auto") +
+  gather(key = "numeric", value  ="value", -logprice)
+# split eda_cat since there are too many variables
+eda_cat1 <- eda_cat[c(1:19500), ]
+eda_cat2 <- eda_cat[c(19501:37500), ]
+ggplot(eda_cat1, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
   facet_wrap(~categorical, scales = "free") +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
-
+ggplot(eda_cat2, aes(x = value, y = logprice, colour = categorical)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~categorical, scales = "free") +
+  labs(x = "", title = "logprice vs categorical predictors") +
+  theme_bw()
 ggplot(eda_con, aes(x = value, y = logprice)) +
   geom_point(size = 0.5, alpha = 0.5) +
   stat_smooth(method = "lm") +
   facet_wrap(~numeric, scales = "free") +
   labs(x = "", title = "logprice vs categorical predictors") +
   theme_bw()
-```
-To start with, we first check on the emprirical distribution of the response variable. There are 2 variables, *logprice* and *price*. From the histogram, we can see that *logprice*, which is the logarithm of *price*, is more normally-distributed. Consider the normality assumption of linear regression, we will use *logprice* as the response variable.  
-
-Then we plot *logprice* against all continuous and categorical variables respectively. Here are some findings.     
-  
-For categorical variables:  
-- *history*, *original*, *type_intermed* and *pastorale* have serious **class imbalance** problem, where value of 1 is seldomly observed. So we will discard these variables in modeling.  
-- The variable *authorstyle* contains too many NA's which is not sufficient to do any analysis, which will also be discarded. 
-- *mat*, *material* and *materialCat* record duplicate features. We will only keep *materialCat* in future analysis for convenience.  
-- *origin_author* and *origin_cat* record similar features which is suspecious of highly dependent on each other. We implement Chi-squared test to test the hypothesis, which yield a p-value of `r chi$p.value`. Thus we will only keep *origin_cat* since it contains less levels.  
-- At glance, strong predictors includde *dealer*, *diff_origin*, *endbuyer*, *materialCat*, *interm*, *finished*, *engraved*, *Irgfont*, *origin_cat*, *paired*, *portrait*, *prevcoll*, *lands_sc*, *peasant*. 
-
-```{r}
-tab_ori <- table(paint_train$origin_author, paint_train$origin_cat)
-chi <- chisq.test(tab_ori)
+ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>% 
+  dplyr::select(c(3,1:4)), lower = list(continuous = wrap("points", alpha = 0.5, size = 0.5))) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title = "Pairwise Comparisons of Continuous Variables")
 ```
 
+transformation graph:
+```{r transformation}
+paint.train_plt_trans <- paint_train[, map_chr(paint_train, class) == "numeric" |
+                         map_chr(paint_train, class) == "integer"] %>%
+  filter(Surface!=0)%>%
+  mutate(Surface = log(Surface)) %>%
+  tidyr::gather(key = "variables", value = "values", -logprice)
+ggplot(paint.train_plt_trans, aes(x = values, y = logprice))+
+geom_point(alpha = 0.5, size = 0.7)+
+facet_wrap(~variables, scales = "free_x")+
+labs(x = "value", y = "logprice",
+title = "logprice vs Transformed Quantitative Predictors") +
+theme_linedraw()+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
-For continuous variables: 
-- *other* and *position* have most of their values gather around 0 and we cannot observe any obvious pattern.  
-- *Diam-in* and *Surface_Rnd* contain too many NA's and therefore should not be inlcuded in the model.  
-- *Surface* and *Surface_Rect* contain duplicate information, and *Surface* contains all the information in *Surface_Rect*. So we will only keep *Surface*. *Height_in* and *Width_in* are discarded for similar reasoning.  
 
 ## Build your first model
 
-In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression.  You may use stepwise model selection to simplify the model using AIC and/or BIC.  For reference, we will fit the null model to initialize the leaderboard, but replace model1 with your recommended model.
+In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression. 
 
 
 ```{r model1, echo=TRUE}
