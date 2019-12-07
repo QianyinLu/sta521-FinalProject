@@ -76,7 +76,6 @@ paint <- paint %>%
                  relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
                  arch, mytho, peasant, othgenre, singlefig, portrait, 
                  still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
-  
   mutate(Surface = dplyr::recode(Surface,
                                      `0` = median(Surface,na.rm=T),
                                  .missing = median(Surface, na.rm=T))) %>%
@@ -103,11 +102,13 @@ paint_test <- paint_ %>% filter(is.na(logprice))
 
 ### Initial Data Cleaning
 
-We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable *sale*, which is a combination of *dealer* and *year*. Additionally, there were other predictors that we deemed would not be useful for prediction, such as *count* which was 1 for every observation, or *subject* which was a short description of the content in the painting. We simplified the data by eliminating unnecessary predictors.
+We began our data cleaning process by reading the codebook for a better understanding of what each variable in the data represented. Several predictors in the dataset were redundant and therefore removed to avoid high correlation among the predictors. Examples of this include the variable *sale*, which is a combination of *dealer* and *year*. Additionally, there were other predictors that we deemed would not be useful for prediction, such as *count* which was 1 for every observation, or *subject* which was a short description of the content in the painting. We simplified the data by eliminating unnecessary predictors. We also noticed that there are variables that record similar information, such as *figures*, *nfigures* and *singlefig*, for simplicity, we treated *nfigures* as binary variables and plotted boxplots of the three variables against the response (See Appendix). We decided to only include *nfigures* in our model building.  
+
+We then check on the emprirical distribution of the response variable. There are 2 variables, *logprice* and *price*. From the histogram (See Appendix), we can see that *logprice*, which is the logarithm of *price*, is more normally-distributed. Consider the normality assumption of linear regression, we will use *logprice* as the response variable.  
 
 ### Categorical Variables
 
-We recoded each categorical variable to be a factor. We created a visualization of the binary categorical variables to observe the balance between classes below.
+We recoded each categorical variable to be a factor. We created a visualization of the binary categorical variables to observe the balance between classes below.  
 
 ### Plot 1
 
@@ -182,7 +183,7 @@ The boxplots above help us identify which variables could be important in predic
 
 There are also quantitative variables in our data that could be used for prediction. Like the categorical variables, many of these predictors were redundant. For example, we were given the surface area of a painting. Additionally, we were given a variable for surface area if the painting was round and a surface area variable if the painting was rectangular. We also were given the height, the width, and the diameter of the painting. We determined that all this information could be condensed to a single variable, *Surface*. 
 
-There was missing data in *Surface* that we had to address. Surface area intuitively seems like it could drive the price of a painting, so we had to develop a strategy for handling the missing observations. With the help of the plot below, we determined that imputing the median surface area size of the dataset would be a good estimation for missing values. Since the distribution of *Surface* is skewed, we wanted an imputation strategy that would be robust to outliers. Thus, we opted for the median over the mean.  
+There were missing data in *Surface* that we had to address. Surface area intuitively seems like it could drive the price of a painting, so we had to develop a strategy for handling the missing observations. With the help of the plot below, we determined that imputing the median surface area size of the dataset would be a good estimation for missing values. Since the distribution of *Surface* is skewed, we wanted an imputation strategy that would be robust to outliers. Thus, we opted for the median over the mean.  
 
 ### Plot 3
 
@@ -196,7 +197,7 @@ ggpairs(paint_train[, map_chr(paint_train, class) == "numeric" |
 
 ```
 
-```{r, echo = FALSE, warning=FALSE,message=FALSE}
+```{r quant plots, echo = FALSE, warning=FALSE,message=FALSE}
 qnt1 <- ggplot(eda_con, aes(x = value, y = logprice)) +
   geom_point(size = 0.5, alpha = 0.5) +
   stat_smooth(method = "lm") +
@@ -224,7 +225,7 @@ ggarrange(qnt1, qnt2,
           ncol = 1, nrow = 2)
 ```
 
-We created scatterplots to observe the relationship between our three quantitative predictor variables and the log price of a painting. The distribution of *Surface* was skewed right and a log transformation was necessary. We plot the relationship of logprice and the transformed Surface column in the lower graph.
+We created scatterplots to observe the relationship between our three quantitative predictor variables and the log price of a painting. The distribution of *Surface* was skewed right and a log transformation was necessary. We plot the relationship of logprice and the log transformed Surface column in the lower graph.
 
 After considering our EDA plots, we determined the 10 variables that we thought would be most useful in predicting *logprice*. 
 
@@ -260,7 +261,7 @@ We fit our initial model on these predictors and interaction terms. Included bel
 
 ### Model Plots
 
-```{r, echo = FALSE, warning = FALSE, message=FALSE}
+```{r, echo = FALSE, warning = FALSE, message=FALSE, fig.asp=1}
 
 final_model <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
@@ -276,10 +277,25 @@ plot(final_model)
 ```{r summary of model, echo = FALSE}
 summary(final_model)
 ```
+  
+Looking at the diagnostic plots, our model 1 seems to satisfy the assumptions of linear regression resonablly well. From the residual vs. fitted plot, we see that our residuals are randomly distributed with mean 0. There is no heteroskedacity satisfying the constant variance assumption of linear regression. Our QQ plot appears approximately normal, as well. The residuals vs fitted plot shows that there are no high leverage points, influential points, or outliers. We can see from the summary output that approximately 62.8% of the variation in *logprice* can be explained by our model.  
 
-From the residual vs. fitted plot, we see that our residuals are randomly distributed with mean 0. There is no heteroskedacity satisfying the constant variance assumption of linear regression. Our QQ plot appears approximately normal, as well. The residuals vs fitted plot shows that there are no high leverage points, influential points, or outliers. We can see from the summary output that approximately 62.8% of the variation in *logprice* can be explained by our model. 
+The summary of the final model shows a R^2 of 0.627, which means that 62.7% of the variation in *logprice* can be explained by our model.  
 
-```{r, eval = FALSE, echo = FALSE}
+
+
+```{r predict-model1, echo=FALSE}
+predictions = as.data.frame(
+  exp(predict(final_model, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+medprice <- median(predictions$fit)
+```
+
+
+## 4. Summary and Conclusions:
+  
+```{r, echo = FALSE}
 options(scipen=999)
 
 tb_final <- broom::tidy(final_model, conf.level=0.95,
@@ -289,22 +305,14 @@ kable(tb_final, digits = 3,
       caption="Coefficient Summary for Final Model") %>%
   kable_styling(latex_options = "hold_position")
 ```
+  
 
-```{r predict-model1, echo=FALSE}
-predictions = as.data.frame(
-  exp(predict(final_model, newdata=paint_test, 
-              interval = "pred")))
-save(predictions, file="predict-test.Rdata")
-```
-
-
-## 4. Summary and Conclusions:
 Looking at the coefficient summary table, we can get the following conclusion. 
 
-First of all, all the interactions are not that important but still have influence on the price. The most important variables are `Surface`, `lrgfont`, `prevcoll`, `origin_cat`, `finished` ,`dealer`, `year`.
+First of all, all the interactions are not that important but still have influence on the price. The most important variables are *Surface*, *lrgfont*, *prevcoll*, *origin_cat*, *finished* ,*dealer*, *year*. The median price is `r medprice`. 
 
 Then, holding all other variables constant,
-
+ 
  - We expect 10% increase in *Surface* will increase the price by 3.4% ($1.1^{\hat{\beta}_1} - 1$). We are 95% confident the increase is between about 2.8% and 4.0%. Specifically, if the authors name is introduced, a 10% increase in *Surface* will result in 3% increase of the price; If there is an intermediary involved, a 10% increase will result in 4.47% increase of the price; If the dealer engages with the authenticity of the painting, a 10% increase will result in 2.5% increase of the price. 
 
  - If the dealer devotes an additional paragraph, the price is expected to increase by 130.6% ($e^{\hat{\beta_2}}$). We are 95% confident the increase is between about 81.8% and 192.2%.
@@ -329,11 +337,40 @@ Then, holding all other variables constant,
  
  - Compared to a buyer endbuyer, a collecter endbuyer is expected to lead to 25.6% decrease in price, and we are 95% confident the decrease is between about -41.0% and 60.7%; A dealer endbuyer is expected to lead to 39.5% decrease in price, and we are 95% confident the decrease is between about -14.0% and 67.9%; An expert endbuyer is expected to lead to 58.9% decrease in price, and we are 95% confident the decrease is between about 20.6 and 78.3%; An unknown endbuyer is expected to lead to 77.0% decrease in price, and we are 95% confident the decrease is between about 37.5% and 82.5%.
 
- - On average, one unit increase in year will lead to 13.4% increase in price. e are 95% confident the decrease is between about 11.8% and 15.1%.
+ - On average, one unit increase in year will lead to 13.4% increase in price. e are 95% confident the decrease is between about 11.8% and 15.1%.  
+  
 
+Based on the model, we can make several suggestions to the art gallary:  
 
 In our model, the confidence intervals for Surface, Irgfont1, prevcoll1, engraved1, finished1, dealerL, dealerP, dealerR, year strictly exclude 0 and thus, contribute positively to the response variable. However, notice that when surface interact with authorstyle, interm and discauth, confidence intervals for interaction terms are not all postive. Thus, we further combine these terms when making recommendations. One thing to notice is that, considering the fact that terms that are used to interact with Surface are not strictly positve(either not all values in confidence interval are positive or the coefficient itself is negative), we can still take surface as a preferrable feature. This means larger surface size, more recent paintings produced in later years(larger number of year variable), dealer being able to devote an additional paragraph or mentioning engravings done after the painting, previous owner being mentioned, painting being finished, and the dealer of the painting is L,P or R can all contribute positively to the auction price. On the other hand, observing the confidence interval table, we also observe some variables with strictly negative coefficents. Due the fact that most of our variables are categorical, we might consider the base level of those variables have positve effect on auction price. For instance, all levels listed for origin_cat have confidence intervals that only includes negative values, which means having the origin of painting based on dealers’ classification in the catalogue being Dutch/Flemish can help increase auction price. In addition, if the painting is not described as a plain landscape, it can be more valuable in terms of auction price for a similar reason. Thus, paintings with such combined features tend to have higher auction price according to our model.
 
 ### Limitations 
 
-There are a few limitations of our model. A major limitation is not having sufficient coverage for test predictions. We only have a 65% coverage rate for our 95% prediction interval. Another limitation is the year variable. While this linear regression might work for this short time frame, this analysis suggests that older paintings are worth less than newer paintings. However, this doesn't capture the 'antique market' for classic pieces of art, which are extremely expensive. This limitation is clear when observing the intercept. The intercept assumes the year is 0, which is not logical for this analysis.  
+There are a few limitations of our model. A major limitation is not having sufficient coverage for test predictions. We only achieved a 65% coverage rate for our 95% prediction interval. This might be imprived when we use more complex model and include more varaibles in our model, like *Author*. Another limitation is the year variable. While this linear regression might work for this short time frame, this analysis suggests that older paintings are worth less than newer paintings. However, this doesn't capture the 'antique market' for classic pieces of art, which are extremely expensive. This limitation is clear when observing the intercept. The intercept assumes the year is 0, which is not logical for this analysis.  
+
+
+## Appendix
+
+```{r histogram, echo=FALSE}
+hist1 <- ggplot(paint_train, aes(x = logprice)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `logprice`")
+hist2 <- ggplot(paint_train, aes(x = price)) +
+  geom_histogram(fill = "light blue") +
+  labs(title = "Empirical distribution for `price`")
+```
+
+```{r figures, echo=FALSE}
+# determine which variable to choose, figures, nfigures and singlefig
+paint_train_pre <- paint %>%
+  filter(!is.na(logprice))
+eda_test <- cbind(logprice = paint_train_pre$logprice, paint_train_pre[,c("nfigures", "figures", "singlefig")]) %>%
+  gather(key = "cat", value = "value", -logprice)
+tab_fig <- table(paint_train_pre$figures, paint_train_pre$singlefig)
+ggplot(eda_test, aes(x = value, y = logprice, colour = cat)) +
+  geom_boxplot(show.legend = F) +
+  facet_wrap(~cat, scales = "free") +
+  labs(x = "", title = "logprice vs nfigures,figures and singlefig") +
+  theme_bw()
+```
+
