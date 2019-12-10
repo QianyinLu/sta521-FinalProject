@@ -80,7 +80,7 @@ paint <- paint %>%
                                         .missing = 'other'))) %>% 
   # change variables into appropriate format
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
-                 diff_origin, artistliving, authorstyle, 
+                 diff_origin, artistliving, authorstyle, authorstandard,
                  winningbiddertype, endbuyer, Interm, type_intermed, 
                  material, mat, materialCat, Shape, engraved, original, 
                  prevcoll, othartist, paired, figures, finished, lrgfont, 
@@ -102,25 +102,12 @@ paint_ <- paint %>%
                    "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
                    "pastorale","history","lands_ment","original","allegory","still_life",
                    "portrait", "school_pntg", "origin_author", 
-                   "winningbiddertype", "figures", "singlefig", "price"))
+                   "winningbiddertype", "figures", "singlefig", "price","authorstandard"))
 # Split back into train and test
 paint_train <- paint_ %>% filter(!is.na(logprice))
 paint_test <- paint_ %>% filter(is.na(logprice))
-remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
-paint_train$authorstandard <- str_remove_all(paint_train$authorstandard, 
-                                             paste(remove, collapse = "|")) %>% as.factor()
-paint_test$authorstandard <- str_remove_all(paint_test$authorstandard, 
-                                             paste(remove, collapse = "|")) %>% as.factor()
-author_level <- c("A", "B", "C", "D")
-paint_train_group <- 
-  paint_train %>% 
-  group_by(authorstandard) %>% 
-  mutate(avg_price = mean(logprice)) %>% 
-  arrange(desc(avg_price))
-paint_train_group <- paint_train_group %>% mutate(level = case_when(avg_price >= quantile(paint_train_group$avg_price, 0.75) ~ author_level[1],
-                           avg_price < quantile(paint_train_group$avg_price, 0.75) & avg_price >= quantile(paint_train_group$avg_price, 0.5) ~ author_level[2],
-                           avg_price < quantile(paint_train_group$avg_price, 0.5) & avg_price >= quantile(paint_train_group$avg_price, 0.25) ~ author_level[3],
-                           avg_price < quantile(paint_train_group$avg_price, 0.25) ~ author_level[4]))
+summary(paint_test)
+
 ```
 
 
@@ -231,21 +218,39 @@ In this part you may go all out for constructing a best fitting model for predic
 Update your predictions using your complex model to provide point estimates and CI.
 ### Model 2 try
 ```{r}
-suppressMessages(library(randomForest))
-treeWAu = randomForest(logprice ~ .,
-data=paint_train,
-mtry=5, importance =TRUE)
-sqrt(ncol(paint_train))
-# mtry = 10 (the number of predictors)
-yhat.bag = predict(bag.carseats,newdata = Carseats.test)
-tab = table(yhat.bag,Carseats.test$High)
-tab
-##
-## yhat.bag No Yes
-## No 104 24
-## Yes 13 59
-class.bag = (tab[1,1] + tab[2,2])/sum(tab)
-class.bag
+library(lars)
+library(glmnet)
+mm = model.matrix(~(.-1)^2, data = paint_train[,-5])
+lasso = cv.glmnet(mm, paint_train[["logprice"]])
+plot(lasso)
+
+c1se = coef(lasso, s = "lambda.1se") %>% as.matrix
+cmin = coef(lasso, s = "lambda.min") %>% as.matrix
+table = cbind(cmin, c1se)
+colnames(table) = c("lambda.min", "lambda.1se")
+table = table[colSums(t(table))!=0,]
+kable(table, caption = "coefficient values under different 
+      penalizations chosen through cross validation. 
+      0 coefficients for both models not shown.")
+```
+
+```{r}
+bootstrap = function(data, fitfunct, testpoint, iter){
+  inds = replicate(iter, sample.int(nrow(data), replace = T), simplify = F)
+  resamp = lapply(inds, function(ind){data[ind,]})
+  out = sapply(resamp, fitfunct, testpoint)
+  return(out)
+}
+
+fitlasso = function(data, testpoint){
+  ls = cv.glmnet(data[,-1], data[,1])
+  out = predict(ls, testpoint, s = "lambda.min")
+}
+
+bootdat = cbind(paint_train[["logprice"]], mm)
+test = model.matrix(~(.-1)^2, paint_test[,-5])
+
+lasso.boot = bootstrap(bootdat, fitlasso, test, 1000)
 ```
 
 
