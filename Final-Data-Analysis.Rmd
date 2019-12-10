@@ -4,6 +4,17 @@ date:  "See Parts for Write-Up due Dates"
 output: pdf_document
 ---
 
+```{r packages, echo = FALSE, warning=FALSE,message=FALSE}
+library(tidyverse)
+library(GGally)
+library(car)
+library(dplyr)
+library(stringr)
+library(ggpubr)
+library(knitr)
+library(kableExtra)
+```
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
@@ -41,6 +52,78 @@ The Code Book is in the file `paris_paintings.md` provides more information abou
 
 ## Part I: Simple Model 
 
+```{r To Do #1, echo = FALSE}
+# merge the two dataset first
+paint <- rbind(paintings_train, paintings_test)
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'U')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         authorstyle = dplyr::recode(authorstyle,
+                                      "n/a" = 0,
+                                      .default = 1),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'other',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'other'))) %>% 
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor)%>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                     `0` = median(Surface,na.rm=T),
+                                 .missing = median(Surface, na.rm=T))) %>%
+  mutate(origin_cat = dplyr::recode(origin_cat,
+                                    "S" = "O")) %>%
+  mutate(nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1)))
+# delete unnecessary variables
+paint_ <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author",
+                   "winningbidder","type_intermed","material","mat",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","still_life",
+                   "portrait", "school_pntg", "origin_author", 
+                   "winningbiddertype", "figures", "singlefig", "price"))
+# Split back into train and test
+paint_train <- paint_ %>% filter(!is.na(logprice))
+paint_test <- paint_ %>% filter(is.na(logprice))
+remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
+paint_train$authorstandard <- str_remove_all(paint_train$authorstandard, 
+                                             paste(remove, collapse = "|")) %>% as.factor()
+paint_test$authorstandard <- str_remove_all(paint_test$authorstandard, 
+                                             paste(remove, collapse = "|")) %>% as.factor()
+author_level <- c("A", "B", "C", "D")
+paint_train_group <- 
+  paint_train %>% 
+  group_by(authorstandard) %>% 
+  mutate(avg_price = mean(logprice)) %>% 
+  arrange(desc(avg_price))
+paint_train_group <- paint_train_group %>% mutate(level = case_when(avg_price >= quantile(paint_train_group$avg_price, 0.75) ~ author_level[1],
+                           avg_price < quantile(paint_train_group$avg_price, 0.75) & avg_price >= quantile(paint_train_group$avg_price, 0.5) ~ author_level[2],
+                           avg_price < quantile(paint_train_group$avg_price, 0.5) & avg_price >= quantile(paint_train_group$avg_price, 0.25) ~ author_level[3],
+                           avg_price < quantile(paint_train_group$avg_price, 0.25) ~ author_level[4]))
+```
+
+
 ### EDA
 
 Using EDA and any numerical summaries get to know the data -  identify what you might consider the 10 best variables for predicting `logprice` using scatterplots with other variables represented using colors or symbols, scatterplot matrices or conditioning plots.  
@@ -50,10 +133,30 @@ Using EDA and any numerical summaries get to know the data -  identify what you 
 In the first model predict the auction price `price` using the transformation `logprice` using at least 10 and up to 20 predictors and any interactions to build a model using linear regression.  You may use stepwise model selection to simplify the model using AIC and/or BIC.  For reference, we will fit the null model to initialize the leaderboard, but replace model1 with your recommended model.
 
 
-```{r model1, echo=TRUE}
-model1 = lm(logprice ~ 1, data=paintings_train)
+```{r Model Development, echo = FALSE, warning=FALSE,message=FALSE}
+model.1 = lm(logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+    prevcoll + origin_cat + engraved + finished + discauth + 
+    dealer + lands_sc + endbuyer + year, data = paint_train)
+model.1.aic = step(model.1, k = 2, trace = F)
 ```
 
+We fit our initial model on these predictors and interaction terms. Included below are our model plots and the summary of the model. 
+
+### Model Plots
+
+```{r, echo = FALSE, warning = FALSE, message=FALSE, fig.asp=1}
+final_model <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+    prevcoll + origin_cat + engraved + finished + discauth + 
+    dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
+      log(Surface):discauth, data = paint_train)
+par(mfrow = c(2,2))
+plot(final_model)
+```
+### Model Summary
+
+```{r summary of model, echo = FALSE}
+summary(final_model)
+```
 
 Save predictions and intervals.  
 ```{r predict-model1, echo=FALSE}
@@ -126,6 +229,25 @@ You will be able to see your scores on the score board.  They will be initialize
 In this part you may go all out for constructing a best fitting model for predicting housing prices using methods that we have covered this semester.  You should feel free to to create any new variables (such as quadratic, interaction, or indicator variables, splines, etc) and try different methods, keeping in mind you should be able to explain your methods and results.
 
 Update your predictions using your complex model to provide point estimates and CI.
+### Model 2 try
+```{r}
+suppressMessages(library(randomForest))
+treeWAu = randomForest(logprice ~ .,
+data=paint_train,
+mtry=5, importance =TRUE)
+sqrt(ncol(paint_train))
+# mtry = 10 (the number of predictors)
+yhat.bag = predict(bag.carseats,newdata = Carseats.test)
+tab = table(yhat.bag,Carseats.test$High)
+tab
+##
+## yhat.bag No Yes
+## No 104 24
+## Yes 13 59
+class.bag = (tab[1,1] + tab[2,2])/sum(tab)
+class.bag
+```
+
 
 ```{r predict-model2, echo=FALSE}
 # replace model1 with model2 here
