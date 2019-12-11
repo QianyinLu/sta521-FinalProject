@@ -65,8 +65,13 @@ paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
 paint <- paint %>%
   mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
                                               .missing = 'U')),
+         dealer = as.factor(dplyr::recode(dealer, 
+                                          'L' = 'LP', 
+                                          'P' = 'LP')), 
          endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
-                                     .missing = 'U',
+                                     .missing = 'EU',
+                                     'E' = 'EU', 
+                                     'U' = 'EU',
                                      'B' = 'C')),
          Interm = as.factor(dplyr::recode(Interm,
                                    .missing = 0,
@@ -190,8 +195,9 @@ paint_test <- paint_test %>%
 paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 ```
 
-```{r}
-
+```{r try}
+ggplot(paint_train, aes(x = endbuyer, y = logprice))+
+  geom_boxplot(show.legend = T)
 ```
 
 
