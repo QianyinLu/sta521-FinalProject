@@ -1,0 +1,139 @@
+---
+title: "data_cleaning"
+author: "George Lindner"
+date: "12/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r packages, echo = FALSE, warning=FALSE,message=FALSE}
+library(tidyverse)
+library(GGally)
+library(car)
+library(dplyr)
+library(stringr)
+library(ggpubr)
+library(knitr)
+#library(kableExtra)
+```
+
+```{r read-data, echo=FALSE}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
+```{r To Do #1, echo = FALSE}
+
+# merge the two dataset first
+paint <-rbind(paintings_train, paintings_test)
+
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'U',
+                                     'B' = 'C')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         authorstyle = dplyr::recode(authorstyle,
+                                      "n/a" = 0,
+                                      .default = 1),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'other',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'other')),
+         school_pntg = as.factor(dplyr::recode(school_pntg,
+                                               'S' = 'X',
+                                               'A' = 'X',
+                                               'G' = 'X'))) %>% 
+
+  # change variables into appropriate format
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstandard, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+  mutate(origin_cat = dplyr::recode(origin_cat,
+                                    "S" = "O")) %>%
+  mutate(nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1)))
+
+
+paint1 <- paint %>% filter(materialCat == 'canvas', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                          `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint2 <- paint %>% filter(materialCat == 'canvas', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint3 <- paint %>% filter(materialCat == 'copper', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint4 <- paint %>% filter(materialCat == 'copper', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint5 <- paint %>% filter(materialCat == 'other', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint6 <- paint %>% filter(materialCat == 'other', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint7 <- paint %>% filter(materialCat == 'wood', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint8 <- paint %>% filter(materialCat == 'wood', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint <- rbind(paint1, paint2, paint3, paint4, paint5, paint6, paint7, paint8)
+
+# delete unnecessary variables
+paint_ <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", "author","winningbidder","type_intermed","material","mat",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","still_life",
+                   "portrait", "origin_author", 
+                   "winningbiddertype", "figures", "singlefig", "price"))
+
+# Split back into train and test
+paint_train <- paint_ %>% filter(!is.na(logprice))
+paint_test <- paint_ %>% filter(is.na(logprice))
+```
+
