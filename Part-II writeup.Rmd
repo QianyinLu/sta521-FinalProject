@@ -66,7 +66,7 @@ paint <- paint %>%
          type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
                                           .missing='Unknown')),
          Shape = as.factor(dplyr::recode(na_if(Shape,""),
-                                  .missing = 'other',
+                                  .missing = 'Unknown',
                                   'squ_rect' = 'squ_rect',
                                   .default = 'other')),
          materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
@@ -107,66 +107,131 @@ paint <- paint %>%
   mutate(nfigures = as.factor(dplyr::recode(nfigures,
                                             `0` = 0,
                                             .default = 1))) %>% 
-  dplyr::select(-c("sale", "lot", "count","subject",
-                   "winningbidder","type_intermed","material","mat",
+  dplyr::select(-c("sale", "lot", "count","subject", "author", "origin_author", "Shape", 
+                   "winningbidder","type_intermed","material","mat", "still_life", "portrait",
                    "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
-                   "pastorale","history","lands_ment","original","allegory",
+                   "pastorale","history","lands_ment","original","allegory","position", 
                    "school_pntg", "winningbiddertype", "figures", "singlefig"))
-
+paint$year <- scale(paint$year, scale = F)
+paint$Surface <- log(paint$Surface)
+paint$year_sq <- (paint$year)^2
+summary(paint)
 ```
 
-```{r group author}
+
+
+```{r authorstyle}
 remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
 paint$authorstandard <- str_remove_all(paint$authorstandard, 
                                              paste(remove, collapse = "|"))
 # split to train and test
 paint_train <- paint[1:1500, ] %>% filter(!is.na(logprice))
 paint_test <- paint[1501:2250, ]
-summary(paint_train)
 
-nauthor <- length(unique(paint_train$authorstandard))
-author_level <- c("A", "B", "C", "D")
+level <- c(1, 0)
 train_author <- paint_train %>% 
   group_by(authorstandard) %>% 
   summarise(avg_price = mean(price)) %>% 
   arrange(desc(avg_price)) %>% 
-  mutate(level = case_when(avg_price >= 3000 ~ author_level[1],
-                           avg_price < 3000 & avg_price >= 1000 ~ author_level[2],
-                           avg_price < 1000 & avg_price >= 200 ~ author_level[3],
-                           avg_price < 200 ~ author_level[4]))
+  mutate(expensive = case_when(avg_price >= 1500 ~ level[1],
+                           avg_price < 1500 ~ level[2]))
 
-ggplot(data = train_author, aes(y = avg_price, x = 1:nauthor, col = level)) +
-  geom_point() + 
-  labs(title = "Average price for each author", x = "Rank")
+ggplot(data = train_author, aes(y = avg_price, x = 1:473, col = as.factor(expensive))) +
+  geom_point() +
+  labs(title = "Average price for each author", x = "Rank", y = "Average price")
 
 # attribute each author name to its group
-author_group = map(author_level, ~train_author$authorstandard[train_author$level == .x]) %>%
-  set_names(author_level)
+author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
+  set_names(level)
 
 # group the training set
 paint_train <- paint_train %>% 
-  mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
-                           authorstandard %in% author_group[[2]] ~ author_level[2], 
-                           authorstandard %in% author_group[[3]] ~ author_level[3], 
-                           authorstandard %in% author_group[[4]] ~ author_level[4]) %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
            as.factor())
 
-# group the test set using same metric, split the data with new author out into test_new
-test_author <- paint_test %>% 
-  mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
-                           authorstandard %in% author_group[[2]] ~ author_level[2], 
-                           authorstandard %in% author_group[[3]] ~ author_level[3], 
-                           authorstandard %in% author_group[[4]] ~ author_level[4]) %>% 
-           as.factor()) %>% 
-  filter(!is.na(level))
+# group the test set using same metric, set new authors to 0
+paint_test <- paint_test %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
+           as.factor)
+paint_test$expensive[is.na(test_author$expensive)] <- level[2]
+# summary(paint_train)
+```
 
-test_new <- paint_test %>% 
-  mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
-                           authorstandard %in% author_group[[2]] ~ author_level[2], 
-                           authorstandard %in% author_group[[3]] ~ author_level[3], 
-                           authorstandard %in% author_group[[4]] ~ author_level[4])) %>% 
-  filter(is.na(level)) %>% 
-  dplyr::select(-level)
+
+```{r ggpairs}
+# ggpairs(paint_train, columns = c(5, 1:4, 8), 
+#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+#   theme(axis.text = element_text(angle = 45, hjust = 1))
+# ggpairs(paint_train, columns = c(5, 9:13), 
+#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+#   theme(axis.text = element_text(angle = 45, hjust = 1))
+# ggpairs(paint_train, columns = c(5, 14:19), 
+#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+#   theme(axis.text = element_text(angle = 45, hjust = 1))
+# ggpairs(paint_train, columns = c(5, 20:25), 
+#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+#   theme(axis.text = element_text(angle = 45, hjust = 1))
+# ggpairs(paint_train, columns = c(5, 26:31), 
+#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+#   theme(axis.text = element_text(angle = 45, hjust = 1))
+```
+The strong predictors are 
+
+
+```{r group author}
+# remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
+# paint$authorstandard <- str_remove_all(paint$authorstandard, 
+#                                              paste(remove, collapse = "|"))
+# # split to train and test
+# paint_train <- paint[1:1500, ] %>% filter(!is.na(logprice))
+# paint_test <- paint[1501:2250, ]
+# summary(paint_train)
+# 
+# nauthor <- length(unique(paint_train$authorstandard))
+# author_level <- c("A", "B", "C", "D")
+# train_author <- paint_train %>% 
+#   group_by(authorstandard) %>% 
+#   summarise(avg_price = mean(price)) %>% 
+#   arrange(desc(avg_price)) %>% 
+#   mutate(level = case_when(avg_price >= 3000 ~ author_level[1],
+#                            avg_price < 3000 & avg_price >= 1000 ~ author_level[2],
+#                            avg_price < 1000 & avg_price >= 200 ~ author_level[3],
+#                            avg_price < 200 ~ author_level[4]))
+# 
+# ggplot(data = train_author, aes(y = avg_price, x = 1:nauthor, col = level)) +
+#   geom_point() + 
+#   labs(title = "Average price for each author", x = "Rank")
+# 
+# # attribute each author name to its group
+# author_group = map(author_level, ~train_author$authorstandard[train_author$level == .x]) %>%
+#   set_names(author_level)
+# 
+# # group the training set
+# paint_train <- paint_train %>% 
+#   mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
+#                            authorstandard %in% author_group[[2]] ~ author_level[2], 
+#                            authorstandard %in% author_group[[3]] ~ author_level[3], 
+#                            authorstandard %in% author_group[[4]] ~ author_level[4]) %>% 
+#            as.factor())
+# 
+# # group the test set using same metric, split the data with new author out into test_new
+# test_author <- paint_test %>% 
+#   mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
+#                            authorstandard %in% author_group[[2]] ~ author_level[2], 
+#                            authorstandard %in% author_group[[3]] ~ author_level[3], 
+#                            authorstandard %in% author_group[[4]] ~ author_level[4]) %>% 
+#            as.factor()) %>% 
+#   filter(!is.na(level))
+# 
+# test_new <- paint_test %>% 
+#   mutate(level = case_when(authorstandard %in% author_group[[1]] ~ author_level[1], 
+#                            authorstandard %in% author_group[[2]] ~ author_level[2], 
+#                            authorstandard %in% author_group[[3]] ~ author_level[3], 
+#                            authorstandard %in% author_group[[4]] ~ author_level[4])) %>% 
+#   filter(is.na(level)) %>% 
+#   dplyr::select(-level)
 ```
 
 ```{r tree}
@@ -193,7 +258,6 @@ ggplot(compare, aes(x = logprice, y = ypred)) +
 ```
 
 ```{r test set validation}
-
 pred1 <- predict(rf, newdata = test_author, predict.all=TRUE)
 
 pred1_int <- apply(pred1$individual, 1, function(x) {
@@ -201,15 +265,29 @@ pred1_int <- apply(pred1$individual, 1, function(x) {
   quantile(x, c(0.5, 0.025, 0.975))
 })
 
-t(exp(pred1_int))
+predictions <- t(exp(pred1_int)) %>% as.data.frame()
+colnames(predictions) <- c("fit", "lwr", "upr")
+save(predictions, file="predict-test.Rdata")
+```
+
+
+```{r centering}
+
 ```
 
 ```{r}
-lm <- lm(logprice~ year + origin_author + dealer + discauth + 
-    endbuyer + Interm + Surface + materialCat + diff_origin + 
-    engraved + prevcoll + paired + nfigures + finished + portrait + 
-    lrgfont + lands_sc + level, data = paint_train)
-summary(lm)
-car::vif(lm)
+full <- lm(logprice ~ (year + year_sq + dealer + origin_cat + diff_origin + authorstyle + 
+    endbuyer + Interm + Surface + materialCat + nfigures +
+    engraved + prevcoll + paired + finished + lrgfont + lands_sc + 
+      lands_elem + othgenre + discauth + expensive)^2, data = paint_train)
+summary(full)
+
+full_aic <- step(full, trace = F, k = 2)
+
 ```
+
+```{r gam}
+
+```
+
 
