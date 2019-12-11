@@ -1,4 +1,3 @@
-
 ---
 title: "Part-II Complex Model"
 author: "Chenxi Wu"
@@ -32,30 +31,34 @@ library(car)
 library(GGally)
 ```
 
+## Introduction
+
+
+## EDA
+
+Based on EDA of Part-I
+
 ```{r read-data}
 load("paintings_train.Rdata")
 load("paintings_test.Rdata")
 ```
 
+
+
 ```{r data cleaning}
 # merge the two dataset first
-paint <- rbind(paintings_train, paintings_test)
+paint <-rbind(paintings_train, paintings_test)
 
 # Fix position > 1
 paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
-
-# Fix material type
-paint$material[str_detect(paint$material, "^bois")] <- "bois"
-paint$material[str_detect(paint$material, "^cuivre")] <- "cuivre"
-paint$material[str_detect(paint$material, "^tableau")] <- "tableau"
-paint$material[str_detect(paint$material, "^toile")] <- "toile"
 
 # regroup some categorical variables
 paint <- paint %>%
   mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
                                               .missing = 'U')),
          endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
-                                     .missing = 'U')),
+                                     .missing = 'U',
+                                     'B' = 'C')),
          Interm = as.factor(dplyr::recode(Interm,
                                    .missing = 0,
                                    `0` = 0,
@@ -66,30 +69,21 @@ paint <- paint %>%
          type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
                                           .missing='Unknown')),
          Shape = as.factor(dplyr::recode(na_if(Shape,""),
-                                  .missing = 'Unknown',
+                                  .missing = 'other',
                                   'squ_rect' = 'squ_rect',
                                   .default = 'other')),
          materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
-                                        .missing = 'other')), 
-         material = as.factor(dplyr::recode(na_if(material,""),
-                                     .missing = 'unknown',
-                                     'n/a' = 'unknown', 
-                                     'bois' = 'bois', 
-                                     'cuivre' = 'cuivre', 
-                                     'tableau' = 'tableau', 
-                                     'toile' = 'toile', 
-                                     .default = 'other')), 
-         mat = as.factor(dplyr::recode(na_if(mat,""),
-                                     .missing = 'unknown',
-                                     'n/a' = 'unknown', 
-                                     'b'='wood', 
-                                     'c'='copper',
-                                     'o'='other', 
-                                     't'='canvas', 
-                                     'ta'='canvas',  
-                                     .default = 'other')), 
-         price = as.numeric(str_remove_all(paint$price, ","))
-         ) %>% 
+                                        .missing = 'other')),
+         school_pntg = as.factor(dplyr::recode(school_pntg,
+                                               'S' = 'X',
+                                               'A' = 'X',
+                                               'G' = 'X')), 
+         origin_cat = as.factor(dplyr::recode(origin_cat,
+                                    "S" = "O")), 
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1)),
+         price = as.numeric(str_remove_all(paint$price, ","))) %>% 
   # change variables into appropriate format
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
                  diff_origin, artistliving, authorstyle, 
@@ -98,35 +92,64 @@ paint <- paint %>%
                  prevcoll, othartist, paired, figures, finished, lrgfont, 
                  relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
                  arch, mytho, peasant, othgenre, singlefig, portrait, 
-                 still_life, discauth, history, allegory, pastorale,other), as.factor) %>% 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) 
+
+
+# impute Surface on different groups
+paint <- paint %>% mutate(Key = seq(1:nrow(paint)))
+paint1 <- paint %>% filter(materialCat == 'canvas', relig == 1) %>% 
   mutate(Surface = dplyr::recode(Surface,
-                                     `0` = median(Surface,na.rm=T),
-                                 .missing = median(Surface, na.rm=T))) %>%
-  mutate(origin_cat = dplyr::recode(origin_cat,
-                                    "S" = "O")) %>%
-  mutate(nfigures = as.factor(dplyr::recode(nfigures,
-                                            `0` = 0,
-                                            .default = 1))) %>% 
-  dplyr::select(-c("sale", "lot", "count","subject", "author", "origin_author", "Shape", 
+                          `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint2 <- paint %>% filter(materialCat == 'canvas', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint3 <- paint %>% filter(materialCat == 'copper', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint4 <- paint %>% filter(materialCat == 'copper', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint5 <- paint %>% filter(materialCat == 'other', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint6 <- paint %>% filter(materialCat == 'other', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint7 <- paint %>% filter(materialCat == 'wood', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint8 <- paint %>% filter(materialCat == 'wood', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint <- rbind(paint1, paint2, paint3, paint4, paint5, paint6, paint7, paint8) %>% 
+  arrange(Key) %>% 
+  select(-Key) %>% 
+  dplyr::select(-c("sale", "lot", "count","subject", "author", "origin_author", 
                    "winningbidder","type_intermed","material","mat", "still_life", "portrait",
                    "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
-                   "pastorale","history","lands_ment","original","allegory","position", 
+                   "pastorale","history","lands_ment","original","allegory","position",
                    "school_pntg", "winningbiddertype", "figures", "singlefig"))
-paint$year <- scale(paint$year, scale = F)
+
 paint$Surface <- log(paint$Surface)
-paint$year_sq <- (paint$year)^2
-summary(paint)
-```
+# paint$year_sq <- (paint$year)^2
+# paint$year_cu <- (paint$year)^3
+# summary(paint)
 
-
-
-```{r authorstyle}
 remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
 paint$authorstandard <- str_remove_all(paint$authorstandard, 
                                              paste(remove, collapse = "|"))
-# split to train and test
-paint_train <- paint[1:1500, ] %>% filter(!is.na(logprice))
-paint_test <- paint[1501:2250, ]
+# Split back into train and test
+paint_train <- paint %>% filter(!is.na(logprice))
+paint_test <- paint %>% filter(is.na(logprice))
 
 level <- c(1, 0)
 train_author <- paint_train %>% 
@@ -155,27 +178,39 @@ paint_test <- paint_test %>%
   mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
                            authorstandard %in% author_group[[2]] ~ level[2]) %>% 
            as.factor)
-paint_test$expensive[is.na(test_author$expensive)] <- level[2]
+paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
+```
+
+
+
+
+```{r authorstyle}
+
+# split to train and test
+paint_train <- paint[1:1500, ] %>% filter(!is.na(logprice))
+paint_test <- paint[1501:2250, ]
+
+
 # summary(paint_train)
 ```
 
 
 ```{r ggpairs}
-# ggpairs(paint_train, columns = c(5, 1:4, 8), 
-#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
-#   theme(axis.text = element_text(angle = 45, hjust = 1))
-# ggpairs(paint_train, columns = c(5, 9:13), 
-#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
-#   theme(axis.text = element_text(angle = 45, hjust = 1))
-# ggpairs(paint_train, columns = c(5, 14:19), 
-#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
-#   theme(axis.text = element_text(angle = 45, hjust = 1))
-# ggpairs(paint_train, columns = c(5, 20:25), 
-#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
-#   theme(axis.text = element_text(angle = 45, hjust = 1))
-# ggpairs(paint_train, columns = c(5, 26:31), 
-#         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
-#   theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train, columns = c(5, 1:4, 8),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train, columns = c(5, 9:13),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train, columns = c(5, 14:19),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train, columns = c(5, 20:25),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
+ggpairs(paint_train, columns = c(5, 26:31),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
+  theme(axis.text = element_text(angle = 45, hjust = 1))
 ```
 The strong predictors are 
 
@@ -236,19 +271,20 @@ The strong predictors are
 
 ```{r tree}
 library(randomForest)
-rf <- randomForest(logprice~ year + origin_author + dealer + discauth + 
-    endbuyer + Interm + Surface + materialCat + diff_origin + 
-    engraved + prevcoll + paired + nfigures + finished + portrait + 
-    lrgfont + lands_sc + level, data = paint_train, mytry = 6, importance = T)
+rf <- randomForest(logprice~ year + dealer + origin_cat + diff_origin + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + expensive, 
+                   data = paint_train, mytry = 6, importance = T)
 varImpPlot(rf)
 
-# traning set 
+# training set 
 rf_pred_train <- predict(rf, newdata = paint_train, type = "response")
 rmse = function(y, ypred) {
   rmse = sqrt(mean((y - ypred)^2))
 return(rmse)
 }
-rf_rmse <- rmse(paint_train$logprice, rf_pred_train)
+rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
 
 compare <- cbind(paint_train, ypred = rf_pred_train)
 ggplot(compare, aes(x = logprice, y = ypred)) +
@@ -258,32 +294,39 @@ ggplot(compare, aes(x = logprice, y = ypred)) +
 ```
 
 ```{r test set validation}
-pred1 <- predict(rf, newdata = test_author, predict.all=TRUE)
-
-pred1_int <- apply(pred1$individual, 1, function(x) {
-  # c(mean(x) + c(-2, 2) * sd(x), 
-  quantile(x, c(0.5, 0.025, 0.975))
-})
-
-predictions <- t(exp(pred1_int)) %>% as.data.frame()
-colnames(predictions) <- c("fit", "lwr", "upr")
-save(predictions, file="predict-test.Rdata")
+# pred1 <- predict(rf, newdata = test_author, predict.all=TRUE)
+# 
+# pred1_int <- apply(pred1$individual, 1, function(x) {
+#   # c(mean(x) + c(-2, 2) * sd(x), 
+#   quantile(x, c(0.5, 0.025, 0.975))
+# })
+# 
+# predictions <- t(exp(pred1_int)) %>% as.data.frame()
+# colnames(predictions) <- c("fit", "lwr", "upr")
+# save(predictions, file="predict-test.Rdata")
 ```
 
 
-```{r centering}
-
-```
-
-```{r}
-full <- lm(logprice ~ (year + year_sq + dealer + origin_cat + diff_origin + authorstyle + 
-    endbuyer + Interm + Surface + materialCat + nfigures +
-    engraved + prevcoll + paired + finished + lrgfont + lands_sc + 
-      lands_elem + othgenre + discauth + expensive)^2, data = paint_train)
+```{r full model}
+paint_train$year <- scale(paint_train$year, scale = F)
+full <- lm(logprice ~ (year + dealer + origin_cat + diff_origin + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + expensive)^2 , data = paint_train)
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + expensive + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
 summary(full)
 
-full_aic <- step(full, trace = F, k = 2)
+summary(lm(logprice ~ log(Surface), data = paint_train))
 
+
+summary(model_ini)
+
+
+full_aic <- step(full, trace = F, k = 2)
+summary(full_aic)
 ```
 
 ```{r gam}
