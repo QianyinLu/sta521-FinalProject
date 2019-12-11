@@ -76,7 +76,7 @@ paint <- paint %>%
          nfigures = as.factor(dplyr::recode(nfigures,
                                             `0` = 0,
                                             .default = 1)),
-         price = as.numeric(str_remove_all(paint$price, ","))) %>% 
+         price = as.numeric(str_remove_all(paint$price, ",")))  %>% 
   # change variables into appropriate format
   mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
                  diff_origin, artistliving, authorstyle, 
@@ -178,11 +178,11 @@ ini_bic$coefficients
 ```{r bma}
 library(BAS)
 set.seed(11)
-bas <- bas.lm(formula(ini_bic), data = paint_train, 
+lm_bas <- bas.lm(ini_bic, data = paint_train, 
               prior = "g-prior", alpha = nrow(paint_train), 
               modelprior = uniform(), method = "MCMC")
-plot(bas, which = 4)
-x = predict(bas, newdata = paint_test, set.fit = T)
+plot(lm_bas, which = 4)
+x = predict(lm_bas, newdata = paint_test, set.fit = T)
 fit <- x$fit
 upr <- fit (qnorm(0.975) * x$se.bma.fit)
 ```
@@ -190,7 +190,10 @@ upr <- fit (qnorm(0.975) * x$se.bma.fit)
 
 
 ```{r}
-try <- lm(logprice ~ year + dealer + origin_cat + authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + Discauth)
+library(party)
+cf1 <- cforest(logprice ~ year + dealer + origin_cat  +  diff_origin +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + nfigures + engraved + prevcoll + paired + finished + lrgfont + lands_sc + lands_elem + othgenre + discauth, data= paint_train, control=cforest_unbiased(mtry=4))
+varimp(cf1) # conditional=True, adjusts for correlation
 ```
 
 ```{r predict-model1, echo=FALSE}
