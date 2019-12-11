@@ -144,47 +144,19 @@ paint$authorstandard <- str_remove_all(paint$authorstandard,
 paint_train <- paint %>% filter(!is.na(logprice))
 paint_test <- paint %>% filter(is.na(logprice))
 
-level <- c(1, 0)
-train_author <- paint_train %>% 
-  group_by(authorstandard) %>% 
-  summarise(avg_price = mean(price)) %>% 
-  arrange(desc(avg_price)) %>% 
-  mutate(expensive = case_when(avg_price >= 1500 ~ level[1],
-                           avg_price < 1500 ~ level[2]))
-
-ggplot(data = train_author, aes(y = avg_price, x = 1:473, col = as.factor(expensive))) +
-  geom_point() +
-  labs(title = "Average price for each author", x = "Rank", y = "Average price")
-
-# attribute each author name to its group
-author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
-  set_names(level)
-
-# group the training set
-paint_train <- paint_train %>% 
-  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
-                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
-           as.factor())
-
-# group the test set using same metric, set new authors to 0
-paint_test <- paint_test %>% 
-  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
-                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
-           as.factor)
-paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message=FALSE, fig.asp=1}
-model1 <- lm(formula = logprice ~ log(Surface) + lrgfont + Interm + authorstyle + 
+model1 <- lm(formula = logprice ~ Surface + lrgfont + Interm + authorstyle + 
     prevcoll + origin_cat + engraved + finished + discauth + 
-    dealer + lands_sc + endbuyer + year + authorstyle:log(Surface) + Interm:log(Surface) +
-      log(Surface):discauth, data = paint_train)
+    dealer + lands_sc + endbuyer + year + authorstyle:Surface + Interm:Surface +
+      Surface:discauth, data = paint_train)
 par(mfrow = c(2,2))
 plot(model1)
 ```
 
 ```{r}
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +  
+model_ini <- lm(logprice ~ year + dealer + origin_cat  +  diff_origin +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
@@ -196,29 +168,34 @@ summary(model_ini)
 n <- nrow(paint_train)
 ini_bic <- step(model_ini, trace = F, k = log(n))
 ini_aic <- step(model_ini, trace = F, k = 2)
-summary(ini_bic)
-summary(ini_aic)
+ini_bic$coefficients
 ```
-```
-
+    year + dealer + origin_cat + authorstyle + 
+    endbuyer + Interm + Surface + engraved + prevcoll + paired + 
+    finished + lrgfont + lands_elem + othgenre + discauth + year:dealer + 
+    dealer:discauth + year:discauth
 
 ```{r bma}
 library(BAS)
 set.seed(11)
-bas <- bas.lm(as.formula(model_ini), data = paint_train, 
+bas <- bas.lm(formula(ini_bic), data = paint_train, 
               prior = "g-prior", alpha = nrow(paint_train), 
               modelprior = uniform(), method = "MCMC")
-
 plot(bas, which = 4)
-
-x <- predict(bas, estimator = "BMA", newdata = paint_test, se.fit = T)
-ints = cbind(x$Ypred + qnorm(0.025) * x$se.pred, x$Ypred - qnorm(0.025) * x$se.pred)
+x = predict(bas, newdata = paint_test, set.fit = T)
+fit <- x$fit
+upr <- fit (qnorm(0.975) * x$se.bma.fit)
 ```
 
 
+
+```{r}
+try <- lm(logprice ~ year + dealer + origin_cat + authorstyle + endbuyer + Interm + Surface + engraved + prevcoll + Discauth)
+```
+
 ```{r predict-model1, echo=FALSE}
 predictions = as.data.frame(
-  exp(predict(final_model, newdata=paint_test, 
+  exp(predict(model1, newdata=paint_test, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
