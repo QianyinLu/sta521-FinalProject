@@ -36,7 +36,9 @@ library(GGally)
 
 ## EDA
 
-Based on EDA of Part-I
+Based on EDA of Part-I, we completed our data cleaning on our data as follows: 
+ 
+ - We 
 
 ```{r read-data}
 load("paintings_train.Rdata")
@@ -184,17 +186,6 @@ paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 
 
 
-```{r authorstyle}
-
-# split to train and test
-paint_train <- paint[1:1500, ] %>% filter(!is.na(logprice))
-paint_test <- paint[1501:2250, ]
-
-
-# summary(paint_train)
-```
-
-
 ```{r ggpairs}
 ggpairs(paint_train, columns = c(5, 1:4, 8),
         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
@@ -208,7 +199,7 @@ ggpairs(paint_train, columns = c(5, 14:19),
 ggpairs(paint_train, columns = c(5, 20:25),
         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
   theme(axis.text = element_text(angle = 45, hjust = 1))
-ggpairs(paint_train, columns = c(5, 26:31),
+ggpairs(paint_train, columns = c(5, 26:32),
         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
   theme(axis.text = element_text(angle = 45, hjust = 1))
 ```
@@ -308,29 +299,43 @@ ggplot(compare, aes(x = logprice, y = ypred)) +
 
 
 ```{r full model}
-paint_train$year <- scale(paint_train$year, scale = F)
-full <- lm(logprice ~ (year + dealer + origin_cat + diff_origin + 
+# paint_train$year <- scale(paint_train$year, scale = F)
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +  
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
-                         lands_sc + lands_elem + othgenre + discauth + expensive)^2 , data = paint_train)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + 
-                         authorstyle + endbuyer + Interm + Surface + materialCat + 
-                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
-                         lands_sc + lands_elem + othgenre + discauth + expensive + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
-summary(full)
+                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
 
-summary(lm(logprice ~ log(Surface), data = paint_train))
 
 
 summary(model_ini)
 
-
-full_aic <- step(full, trace = F, k = 2)
-summary(full_aic)
+n <- nrow(paint_train)
+ini_bic <- step(model_ini, trace = F, k = log(n))
+ini_aic <- step(model_ini, trace = F, k = 2)
+summary(ini_bic)
+summary(ini_aic)
 ```
 
-```{r gam}
+```{r predict-model2, echo=FALSE}
+# replace model1 with model2 here
+# paint_test$year <- scale(paint_test$year, scale = F)
+predictions = as.data.frame(
+  exp(predict(bas, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
 
+```{r bma}
+library(BAS)
+set.seed(11)
+bas <- bas.lm(as.formula(model_ini), data = paint_train, 
+              prior = "g-prior", alpha = nrow(paint_train), 
+              modelprior = uniform(), method = "MCMC")
+
+plot(bas, which = 4)
+
+x <- predict(bas, estimator = "BMA", newdata = paint_test, se.fit = T)
+ints = cbind(x$Ypred + qnorm(0.025) * x$se.pred, x$Ypred - qnorm(0.025) * x$se.pred)
 ```
 
 
