@@ -230,7 +230,7 @@ rmse = function(obs, pred) { sqrt(sum((obs - pred)^2)/length(obs))}
 ### Example Coverage and RMSE
 
 ```{r Example}
-lm1 <- lm(logprice ~ expensive + endbuyer + lrgfont + dealer, data = TRAIN)
+lm1 <- lm(logprice ~ year + materialCat + expensive + endbuyer + lrgfont + dealer, data = TRAIN)
 
 rmse(exp(predict(lm1, newdata = VALIDATE)), exp(VALIDATE$logprice)) # on new data
 rmse(exp(predict(lm1)), exp(TRAIN$logprice)) # on seen data
