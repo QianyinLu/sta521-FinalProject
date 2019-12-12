@@ -196,6 +196,9 @@ paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 ```
 
 ```{r try}
+lm1 <- lm(logprice~expensive, data = paint_train)
+summary(lm1)
+
 ggplot(paint_train, aes(x = endbuyer, y = logprice))+
   geom_boxplot(show.legend = T)
 ```
@@ -264,11 +267,10 @@ save(predictions, file="predict-test.Rdata")
 
 ```{r full model}
 # paint_train$year <- scale(paint_train$year, scale = F)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +  
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
-
 
 
 summary(model_ini)
