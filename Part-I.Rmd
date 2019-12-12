@@ -15,6 +15,11 @@ library(BAS)
 library(car)
 ```
 
+```{r read-data, echo=TRUE}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
 ### EDA final version
 
 ```{r}
@@ -205,3 +210,199 @@ predictions = as.data.frame(
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
+
+
+```{r}
+library(glmnet)
+grid <- 10^seq(1,-2,length=100)
+x <- model.matrix(logprice~.,paint_train)[,-1]
+y = paint_train$logprice
+Lasso_paint = glmnet(x,y, standardize=TRUE, 
+                     lambda=grid, alpha = 1)
+cv.out <- cv.glmnet(x,y, type.measure = "class",
+                    alpha=1,lambda=grid)
+plot(cv.out)
+summary(Lasso_paint)
+coef(cv.out)
+bestlam = cv.out$lambda.min
+coef(Lasso_paint, s = bestlam) %>%
+  as.matrix() %>%
+  data.frame() %>%
+  `colnames<-`("Est. Coefficients") %>%
+  kable(digits = 3)
+```
+
+```{r}
+imputed_Data <- mice(iris.mis, m=5, maxit = 50, method = 'pmm', seed = 500)
+summary(imputed_Data)
+```
+
+
+```{r}
+paint1 <- paint %>% filter(materialCat == 'canvas', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                          `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint2 <- paint %>% filter(materialCat == 'canvas', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint3 <- paint %>% filter(materialCat == 'copper', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint4 <- paint %>% filter(materialCat == 'copper', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint5 <- paint %>% filter(materialCat == 'other', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint6 <- paint %>% filter(materialCat == 'other', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint7 <- paint %>% filter(materialCat == 'wood', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+paint8 <- paint %>% filter(materialCat == 'wood', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+paint <- rbind(paint1, paint2, paint3, paint4, paint5, paint6, paint7, paint8)
+# delete unnecessary variables
+paint_ <- paint %>% 
+  dplyr::select(-c("sale", "lot", "diff_origin", "count","subject", 
+                   "author","winningbidder","type_intermed","material","mat",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","still_life",
+                   "portrait", "origin_author", 
+                   "winningbiddertype", "figures", "singlefig", "price"))
+# Split back into train and test
+paint_train <- paint_ %>% filter(!is.na(logprice))
+paint_test <- paint_ %>% filter(is.na(logprice))
+```
+
+
+
+```{r}
+library(BMA)
+library(BAS)
+
+paint_train = paint_train[,-c(6,7)]
+paint_test = paint_test[,-c(6,7)] %>% 
+  bind_cols(order = seq(1:nrow(paint_test)))
+
+paint_train.exp = paint_train %>% 
+  filter(expensive==1)
+paint_train.che = paint_train %>% 
+  filter(expensive==0)
+paint_test.exp = paint_test %>% 
+  filter(expensive==1) %>% 
+  select(-order)
+paint_test.che = paint_test %>% 
+  filter(expensive==0) %>% 
+  select(-order)
+
+x.train.exp <- model.matrix(logprice~.,paint_train.exp)[,-1]
+y.train.exp = paint_train.exp$logprice
+x.train.che <- model.matrix(logprice~.,paint_train.che)[,-1]
+y.train.che = paint_train.che$logprice
+
+###
+BMA.train.exp <- bicreg(x = x.train.exp,y = y.train.exp)
+summary(BMA.train.exp)
+model.1 = lm(data = paint_train.exp,logprice~dealer+year+authorstyle+Surface+finished)
+BMA.train.che <- bicreg(x = x.train.che,y = y.train.che)
+summary(BMA.train.che)
+model.2 = lm(data = paint_train.che,logprice~dealer+year+origin_cat+
+               artistliving+authorstyle+endbuyer+Interm+Surface+materialCat+
+               engraved+prevcoll+paired+finished+lrgfont)
+####
+paint_test.exp = paint_test %>% 
+  bind_cols(order = seq(1:nrow(paint_test))) %>% 
+  filter(expensive==1)
+paint_test.che = paint_test %>% 
+  bind_cols(order = seq(1:nrow(paint_test))) %>% 
+  filter(expensive==0)
+predictions.exp = as.data.frame(
+  exp(predict(model.1, newdata=paint_test.exp, 
+              interval = "pred"))) %>% 
+  bind_cols(order = paint_test.exp$order)
+  
+predictions.che = as.data.frame(
+  exp(predict(model.2, newdata=paint_test.che, 
+              interval = "pred")))%>% 
+  bind_cols(order = paint_test.che$order)
+
+predictions = rbind(predictions.exp,predictions.che) %>% 
+  arrange(order) %>% 
+  select(-order)
+
+save(predictions, file="predict-test.Rdata")
+####
+
+```
+
+```{r}
+model_ini <- lm(logprice ~ year + dealer + origin_cat  +  diff_origin +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
+
+
+
+summary(model_ini)
+
+n <- nrow(paint_train)
+ini_bic <- step(model_ini, trace = F, k = log(n))
+summary(ini_bic)
+###
+lm_bas <- bas.lm(as.formula(ini_bic), data = paint_train,
+                 prior = 'g-prior', modelprior=uniform(),
+                 alpha = nrow(paint_train),
+                 method='MCMC', force.heredity = TRUE)
+plot(lm_bas)
+pred_bma <- predict(lm_bas, newdata = paint_test, se.fit = T, type = "response")
+fit <- pred_bma$fit
+upr <- fit + (qnorm(0.975) * pred_bma$se.bma.pred)
+lwr <- fit + (qnorm(0.025) * pred_bma$se.bma.pred)
+predictions=exp(data.frame(fit,lwr,upr))
+save(predictions, file="predict-test.Rdata")
+
+###
+
+model_yi.1 = lm(logprice~expensive+dealer+year+origin_cat+artistliving+
+                  authorstyle+
+                  endbuyer+Interm+Surface+materialCat+engraved+
+                  prevcoll+paired+finished+lrgfont+lands_sc+discauth,
+                data = paint_train)
+model_yi.1.bic = step(model_yi.1,trace=F,k=log(nrow(paint_train)))
+summary(model_yi.1.bic)
+predictions = as.data.frame(
+  exp(predict(model_yi.1.bic, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
+
+```{r}
+paint %>% 
+  group_by(dealer) %>% 
+  summarize(mean(logprice))
+```
+
+
+```{r}
+model_yi.2 = lm(logprice~dealer+origin_cat+
+                  endbuyer+Surface+paired+diff_origin+
+                  authorstyle+materialCat+finished+lrgfont,
+                data = paint_train)
+predictions = as.data.frame(
+  exp(predict(model_yi.2, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
+
+
