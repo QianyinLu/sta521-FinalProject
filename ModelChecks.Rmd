@@ -1,0 +1,241 @@
+---
+title: "Model Validating"
+author: "George Lindner"
+date: "12/12/2019"
+output: html_document
+---
+
+### Packages 
+
+```{r packages, echo = FALSE, warning=FALSE,message=FALSE}
+library(tidyverse)
+library(GGally)
+library(car)
+library(dplyr)
+library(stringr)
+library(ggpubr)
+library(knitr)
+#library(kableExtra)
+```
+
+# Read Data In
+
+```{r read-data, echo=FALSE}
+load("paintings_train.Rdata")
+load("paintings_test.Rdata")
+```
+
+### Initial data cleaning
+
+```{r data cleaning}
+
+# merge the two dataset first
+paint <-rbind(paintings_train, paintings_test)
+
+# Fix position > 1
+paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
+
+# regroup some categorical variables
+paint <- paint %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         dealer = as.factor(dplyr::recode(dealer, 
+                                          'L' = 'LP', 
+                                          'P' = 'LP')), 
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'EU',
+                                     'E' = 'EU', 
+                                     'U' = 'EU',
+                                     'B' = 'C')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         authorstyle = dplyr::recode(authorstyle,
+                                      "n/a" = 0,
+                                      .default = 1),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'other',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'other')),
+         school_pntg = as.factor(dplyr::recode(school_pntg,
+                                               'S' = 'X',
+                                               'A' = 'X',
+                                               'G' = 'X')), 
+
+         origin_cat = as.factor(dplyr::recode(origin_cat,
+                                    "S" = "O")), 
+
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1)),
+         price = as.numeric(str_remove_all(paint$price, ","))) %>% 
+
+  # change variables into appropriate format
+
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) 
+
+# impute Surface on different groups
+
+paint <- paint %>% mutate(Key = seq(1:nrow(paint)))
+
+paint1 <- paint %>% filter(materialCat == 'canvas', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                          `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint2 <- paint %>% filter(materialCat == 'canvas', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint3 <- paint %>% filter(materialCat == 'copper', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint4 <- paint %>% filter(materialCat == 'copper', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint5 <- paint %>% filter(materialCat == 'other', relig == 1) %>% 
+
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint6 <- paint %>% filter(materialCat == 'other', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint7 <- paint %>% filter(materialCat == 'wood', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint8 <- paint %>% filter(materialCat == 'wood', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint <- rbind(paint1, paint2, paint3, paint4, paint5, paint6, paint7, paint8) %>% 
+  arrange(Key) %>% 
+  select(-Key) %>% 
+  dplyr::select(-c("sale", "lot", "count","subject", "author", "origin_author",
+                   "winningbidder","type_intermed","material","mat", "still_life", "portrait",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","position",
+                   "school_pntg", "winningbiddertype", "figures", "singlefig"))
+
+paint$Surface <- log(paint$Surface)
+
+remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
+
+paint$authorstandard <- str_remove_all(paint$authorstandard, 
+                                             paste(remove, collapse = "|"))
+
+# Split back into train and test
+paint_train <- paint %>% filter(!is.na(logprice))
+paint_test <- paint %>% filter(is.na(logprice))
+
+level <- c(1, 0)
+
+train_author <- paint_train %>% 
+  group_by(authorstandard) %>% 
+  summarise(avg_price = mean(price)) %>% 
+  arrange(desc(avg_price)) %>% 
+  mutate(expensive = case_when(avg_price >= 1500 ~ level[1],
+                           avg_price < 1500 ~ level[2]))
+
+# attribute each author name to its group
+author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
+  set_names(level)
+
+# group the training set
+paint_train <- paint_train %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
+           as.factor())
+
+# group the test set using same metric, set new authors to 0
+paint_test <- paint_test %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
+           as.factor)
+paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
+```
+
+
+### Create Train and Validate Sets
+
+```{r train and validate}
+n <- sample(1500, 1100)
+TRAIN <- paint_train[n,]
+VALIDATE <- paint_train[-n,]
+```
+
+### RMSE and Coverage Functions
+
+```{r RMSE and Coverage}
+
+coverage <- function(y, pi) {
+  return(mean(y >= pi[,1] & y <= pi[,2]))
+}
+
+coverage.test <- function(model, newdata, response,
+              conf.level = 0.95, transform = identity) {
+  
+    output <- NA
+    pred <- predict(model, newdata, level = conf.level,
+                    interval = "prediction", type = "response")
+    pred <- transform(pred)
+    
+    output <- data.frame(response, fit = pred[,1], lower = pred[,2], upper = pred[,3])
+  
+  output <- output %>%
+    mutate(covered = (response >= lower & response <= upper))
+  print(paste("Coverage:", mean(output$covered)))
+  
+  return (output)
+}
+
+# Pass in results of coverage.test
+coverage.plot <- function(output, conf.level = 0.95) {
+  
+  ggplot(output, aes(x = fit, y = response)) +
+    geom_point(aes(color = output$covered)) +
+    geom_ribbon(mapping = aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.2) +
+    labs(title = paste0(conf.level*100, "% Prediction Interval Coverage"),
+         x = "Predicted Value of Log Price", y = "Observed Value of Log Price") +
+    theme_bw() 
+}
+
+rmse = function(obs, pred) { sqrt(sum((obs - pred)^2)/length(obs))}
+```
+
+
+### Example Coverage and RMSE
+
+```{r Example}
+lm1 <- lm(logprice ~ expensive + endbuyer + lrgfont + dealer, data = TRAIN)
+
+rmse(exp(predict(lm1, newdata = VALIDATE)), exp(VALIDATE$logprice)) # on new data
+rmse(exp(predict(lm1)), exp(TRAIN$logprice)) # on seen data
+
+cov_data <- coverage.test(lm1, VALIDATE, VALIDATE$logprice)
+coverage.plot(cov_data)
+```
+
