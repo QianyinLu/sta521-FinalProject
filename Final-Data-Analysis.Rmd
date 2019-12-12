@@ -55,7 +55,7 @@ The Code Book is in the file `paris_paintings.md` provides more information abou
 ```{r To Do #1, echo = FALSE}
 # merge the two dataset first
 paint <- rbind(paintings_train, paintings_test)
-# Fix position > 1
+paint %>% select(endbuyer, logprice) %>% filter(!is.na(logprice) & endbuyer) %>% summarise(mean = mean(logprice))
 paint$position[paint$position > 1] <- paint$position[paint$position > 1]/100
 # regroup some categorical variables
 paint <- paint %>%
@@ -107,6 +107,7 @@ paint_ <- paint %>%
 paint_train <- paint_ %>% filter(!is.na(logprice))
 paint_test <- paint_ %>% filter(is.na(logprice))
 summary(paint_test)
+
 
 ```
 
