@@ -315,10 +315,18 @@ coef(lm_bas, estimator = "BMA")
 
 #predictions
 x = predict(lm_bas, estimator = "BMA",newdata = VALIDATE, se.fit = T)
-ints = confint(x, parm = "pred")
+interval = confint(x, parm = "pred")
+predictions <- exp(interval) %>% as.matrix()
+colnames(predictions) <- c("fit","lwr", "upr")
 
 ```
 
+```{r}
+predictions = as.data.frame(
+  exp(predict(lm_bas, newdata=paint_test, 
+              interval = "pred")))
+save(predictions, file="predict-test.Rdata")
+```
 
 
 
