@@ -225,6 +225,7 @@ ggpairs(paint_train, columns = c(5, 26:32),
   theme(axis.text = element_text(angle = 45, hjust = 1))
 ```
   
+  
 For EDA in Part-II, we added pairwise plot to have a general view of the interactions of all the variables. 
 
 
@@ -257,7 +258,7 @@ ImpMeasure$Vars<-rownames(varImp(rf))
 kable(ImpMeasure[order(-ImpMeasure$Overall),][15:19,], 
       "latex", booktabs = T, 
       digits = 3, caption = "Least 5 important variables of RF") %>% 
-  kable_styling(position = "center", latex_options = "striped")
+  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
 
 # training set 
 rf_pred_train <- predict(rf, newdata = paint_train, type = "response")
@@ -308,7 +309,7 @@ From the analysis so far our main problem is overfitting. This might be improved
 
 In addition to the variables we used in the random forrest model, we also added interactions based on the p-value of these interactions (See Appendix for the summary of the full model), namely *dealer* with *year*, *authorstyle* and *discauth*, *year* and *discauth*. The results can be summarised as follows: 
 
-```{r bma, cache=T}
+```{r bma}
 library(BAS)
 model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
@@ -333,7 +334,7 @@ df4 <- data.frame(variable = lm_bas$namesx,
 ```{r bma table}
 kable(df4, "latex", booktabs = T,
       digits = 3, caption = "Coefs and C.I. of best BMA model") %>% 
-  kable_styling(position = "center", latex_options = "striped")
+  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
 
 #predictions
 # x = predict(lm_bas, estimator = "BMA",newdata = paint_test, se.fit = T)
@@ -377,39 +378,40 @@ predictions = as.data.frame(
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
-
+  
 ## Assessment of the final model
 ```{r res plot, fig.asp=1}
 par(mfrow = c(2, 2))
 plot(final_model)
 ```
 Looking at the diagnostic plots, our final model seems to satisfy the assumptions of linear regression resonablly well. From the Residual vs Fitted plot we can see equally spread residuals around a horizontal line without any distinct patterns; The Normal Q-Q plot shows the residuals are almost normally-distributed. The Scale-Location plot shows that homoscedasticity is met. The Residual vs Leverage plot does not show any points that are influential or falls outside of Cook's distance line. 
-
-To check for the multicollinearity problem, we used variance inflation factor (VIF). The result is in the table below. Issue of multicollinearity is negligible for no VIF exceeds 5.  
-```{r}
+  
+```{r vif}
 vif <- vif(final_model) %>% as.data.frame()
 kable(vif, "latex", booktabs = T,
       digits = 3,caption = "VIF of final model") %>% 
-  kable_styling(latex_options = "striped", position = "center")
+  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
 ```
+  
+To check for the multicollinearity problem, we used variance inflation factor (VIF). The result is in the table above. Issue of multicollinearity is negligible for no VIF exceeds 5.  
+
 
 
 ## Conclusion
 
-```{r}
-options(scipen=999)
+```{r coef summary}
 tb_final <- broom::tidy(final_model, conf.level=0.95,
                    conf.int = TRUE, exponentiate=T)
 kable(tb_final, "latex", booktabs = T, digits = 3,
       caption="Coefficient Summary for Final Model") %>%
-  kable_styling(latex_options = "striped")
+  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
 ```
-
+  
 
 ## Reference
   
 [1] Hoeting, Jennifer A., et al. “Bayesian Model Averaging: A Tutorial.” Statistical Science, vol. 14, no. 4, 1999, pp. 382–401. JSTOR, www.jstor.org/stable/2676803.
-
+  
 ## Appendix
 ```{r full}
 full_model <- lm(logprice ~ (year + dealer + origin_cat + diff_origin +
@@ -417,7 +419,7 @@ full_model <- lm(logprice ~ (year + dealer + origin_cat + diff_origin +
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth)^2, data = paint_train)
 
-summary(full_model)
+# summary(full_model)
 ```
 
 
