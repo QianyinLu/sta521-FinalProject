@@ -428,7 +428,6 @@ To check for the multicollinearity problem, we used variance inflation factor (V
 ```{r validation}
 #make same changes to validation set
 load("paintings_validation.RData")
-paintings_validation
 # Fix position > 1
 paintings_validation$position[paintings_validation$position > 1] <- paintings_validation$position[paintings_validation$position > 1]/100
 
@@ -580,10 +579,12 @@ paintings_validation$expensive[is.na(paintings_validation$expensive)] <- level[2
 ```{r top paintings}
 #predict top 10
 fitted <- exp(predict(final_model, newdata = paintings_validation))
-Top10 <- cbind(paintings_validation, fitted) %>% arrange(desc(fitted)) %>% slice(1:10) %>% select(-c(logprice,price))
-kable(Top10, digits = 3)
+Top10 <- cbind(paintings_validation, fitted) %>% arrange(desc(fitted)) %>% slice(1:10) %>% select(fitted,year,dealer,expensive,authorstyle,endbuyer,Interm ,Surface,finished,lrgfont,diff_origin)
+kable(Top10, "latex", booktabs = T, digits = 3,
+      caption="Top 10 paintings")%>%
+  kable_styling(position = "center", latex_options = c("striped", "HOLD_position"))
 ```
-Using our model for predicting price for validation data set, we got our top 10 valuable paintings. We can see that these paintings all share certain important features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C, the dealer devotes an additional paragraph and an intermediary is involved in the transaction etc. This is quite expected due to the way we constructed our model. 
+Using our model for predicting price for validation data set, we got our top 10 valuable paintings.From this we can learn what are some desirable features of the paintings based on our model through observing these valuable paintings all share certain common features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C, the dealer devotes an additional paragraph and an intermediary is involved in the transaction etc. This is quite expected due to the way we constructed our model. 
 
 ```{r pred}
 predictions_validation = as.data.frame(
