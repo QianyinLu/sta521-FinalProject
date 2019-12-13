@@ -31,6 +31,7 @@ library(car)
 library(GGally)
 library(caret)
 library(randomForest)
+library(BMA)
 ```
 
 ## Introduction
@@ -46,7 +47,7 @@ Based on EDA of Part-I, we completed our data cleaning on our data as follows:
  - To alleviate the class imbalance problem of *school-pntg*, *origin_cat*, *mat* and *material*, we regrouped levels with fewer observations to larger levels. 
  - We transformed *nfigures* into a binary variable where values other than 0 are set to 1. 
  - In Part-I we imputed the NA's in *Surface* to median value of *Surface*. Here we tried more advanced methods by regressing other variables on *Surface* to see the correlations. We found out that *Surface* was correlated with *MaterialCat* and *relig*, from which we devided the data into 8 groups and imputed median value for each group respectively. We tested the efficiency of the new imputation and the result showed that *Surface* has more explanation power than before. 
- - In Part-I we discarded the variable *authorstandard* which can be a strong predictor. Here we cleaned *authorstandard* so it contains fewer unique values. We computed the average price for each author and ploted them in a descending order (See plot below). The plot showed that the relationship between author and price is significant. So we created a binary variable *expensive*, we set the authors with high average price to 1 and the others to 0. 
+ - In Part-I we discarded the variable *authorstandard* which can be a strong predictor. Here we cleaned *authorstandard* so it contains fewer unique values. We computed the average price for each author and ploted them in a descending order (See plot below). The plot showed that the relationship between author and price is significant. So we created a binary variable *expensive*, we set the authors with high average price to 1 and the others to 0. The variable we built actually captures a sginificant amount of variation in the response variable. the regression of *expensive* on *logprice* achieved an $R^2 = 0.157$. 
  - To avoid overfitting, we regrouped *dealer* and *endbuyer* into three levels respectively. Specifically, we combined 'L' and 'P' in *dealer* and 'E' and 'U' in *endbuyer*. 
 
 ```{r read-data}
@@ -199,11 +200,9 @@ paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 
 
 ```{r try}
-lm1 <- lm(logprice~expensive, data = paint_train)
-summary(lm1)
+sum <- summary(lm(logprice~expensive, data = paint_train))
+r2 <- format(sum$r.squared, digits = 3)
 
-ggplot(paint_train, aes(x = endbuyer, y = logprice))+
-  geom_boxplot(show.legend = T)
 ```
 
 
@@ -225,6 +224,7 @@ ggpairs(paint_train, columns = c(5, 26:32),
         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
   theme(axis.text = element_text(angle = 45, hjust = 1))
 ```
+  
 For EDA in Part-II, we added pairwise plot to have a general view of the interactions of all the variables. 
 
 
@@ -238,12 +238,8 @@ We tried several complex models to better depict the behaviour of the response v
 
 ### Random Forrest
 
-Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the DEA above. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. 
+Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the DEA above. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. From random forrest we obtained the 5 least important variables and discarded them in further modeling. The variables are displayed in the table below. 
   
-To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to the narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
-
-### still need predictive checks ###
-
 ```{r tree}
 set.seed(222)
 rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
@@ -255,7 +251,13 @@ rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensi
 varImpPlot(rf)
 ImpMeasure<-data.frame(Overall = varImp(rf)$Overall)
 ImpMeasure$Vars<-rownames(varImp(rf))
-kable(ImpMeasure[order(-ImpMeasure$Overall),][15:19,], digits = 3)
+```
+
+```{r rf table}
+kable(ImpMeasure[order(-ImpMeasure$Overall),][15:19,], 
+      "latex", booktabs = T, 
+      digits = 3, caption = "Least 5 important variables of RF") %>% 
+  kable_styling(position = "center", latex_options = "striped")
 
 # training set 
 rf_pred_train <- predict(rf, newdata = paint_train, type = "response")
@@ -271,8 +273,11 @@ rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
 #   geom_abline(intercept = 0, slope = 1, col = "light pink") +
 #   geom_smooth(method = "lm", se = T)
 ```
+  
+To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to the narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
 
-From random forrest we obtained the 5 least important variables and discarded them in further modeling. The variables are displayed in the table above. 
+### still need predictive checks ###
+
 
 ```{r test set validation}
 # pred1 <- predict(rf, newdata = paint_test, predict.all=TRUE)
@@ -289,14 +294,14 @@ From random forrest we obtained the 5 least important variables and discarded th
 
 ```{r full model}
 # paint_train$year <- scale(paint_train$year, scale = F)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
-                         authorstyle + endbuyer + Interm + Surface + materialCat + 
-                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
-                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
-
-n <- nrow(paint_train)
-ini_bic <- step(model_ini, trace = F, k = log(n))
-ini_aic <- step(model_ini, trace = F, k = 2)
+# model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
+#                          authorstyle + endbuyer + Interm + Surface + materialCat + 
+#                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+#                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
+# 
+# n <- nrow(paint_train)
+# ini_bic <- step(model_ini, trace = F, k = log(n))
+# ini_aic <- step(model_ini, trace = F, k = 2)
 ```
   
 From the analysis so far our main problem is overfitting. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
@@ -309,6 +314,7 @@ model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
+
 lm_bas <- bas.lm(as.formula(model_ini), data = paint_train, 
               prior = "g-prior", alpha = nrow(paint_train), 
               modelprior = uniform(), method = "MCMC")
@@ -321,33 +327,45 @@ df4 <- data.frame(variable = lm_bas$namesx,
                   lwr = summary.bas[,1],
                   upr = summary.bas[,2],
                   row.names = NULL) %>% arrange(desc(coef))
+```
 
-kable(df4, digits = 3, caption = "Coefs and C.I. of best BMA model sorted
-by coefs from high to low")
-coef(lm_bas, estimator = "BMA")
+```{r bma table}
+
+kable(df4, "latex", booktabs = T,
+      digits = 3, caption = "Coefs and C.I. of best BMA model") %>% 
+  kable_styling(position = "center", latex_options = "striped")
 
 #predictions
-x = predict(lm_bas, estimator = "BMA",newdata = paint_test, se.fit = T)
-interval = confint(x, parm = "pred")
-confint <- exp(interval)
-predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
+# x = predict(lm_bas, estimator = "BMA",newdata = paint_test, se.fit = T)
+# interval = confint(x, parm = "pred")
+# confint <- exp(interval)
+# predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
 ```
-From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *year*:*dealer* since their margnial inclusion probability is less than 0.5. 
+From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *auhtorstyle*:*dealer* since their margnial inclusion probability is less than 0.5. 
 
-
+After cross referencing the result of random forrest and BMA, we decided to give another shot with simple models. So we discarded the variables that are not significant and refit a linear model. The problem of overfitting still exists. To further select variables, we used Added variable plots, which shows us the relationship between the response variable and one of the predictors in the regression model, after controlling for the presence of other predictors. 
 
 ```{r new linear model}
 new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
-                         authorstyle + endbuyer + Interm + Surface + materialCat + 
-                         engraved + prevcoll + paired + finished + lrgfont + 
-                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth)
-new <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = paint_train)
+                         authorstyle + endbuyer + Interm + Surface +  
+                         paired + finished + lrgfont + 
+                         year:dealer, data = paint_train)
 avPlots(new_lm)
-print(av)
-plot(new)
-vif(new)
 ```
 
+From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat*, *diff_origin* and *year*:*dealer*, so we deleted these variables to refit the linear model. Our final model can be summarised as follows: 
+
+$$
+\begin{aligned}
+\text{logprice} &= \beta_0 + \beta_1 \text{year} + \beta_2 \text{dealer} + \beta_3 \text{expensive} + \beta_4 \text{authorstyle} + \beta_5 \text{endbuyer} \\
+&+ \beta_6 \text{Interm} + \beta_7 \text{Surface} + \beta_8 \text{finished} + \beta_9 \text{Irgfont} + \epsilon
+\end{aligned}
+$$
+
+```{r final model, fig.asp=1}
+new <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = paint_train)
+final_model <- new
+```
 
 
 
@@ -355,18 +373,37 @@ vif(new)
 # replace model1 with model2 here
 # paint_test$year <- scale(paint_test$year, scale = F)
 predictions = as.data.frame(
-  exp(predict(new, newdata=paint_test, 
+  exp(predict(final_model, newdata=paint_test, 
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
 
+## Assessment of the final model
+```{r res plot, fig.asp=1}
+par(mfrow = c(2, 2))
+plot(final_model)
+```
+Looking at the diagnostic plots, our final model seems to satisfy the assumptions of linear regression resonablly well. From the Residual vs Fitted plot we can see equally spread residuals around a horizontal line without any distinct patterns; The Normal Q-Q plot shows the residuals are almost normally-distributed. The Scale-Location plot shows that homoscedasticity is met. The Residual vs Leverage plot does not show any points that are influential or falls outside of Cook's distance line. 
 
-
-
-## Summary
+To check for the multicollinearity problem, we used variance inflation factor (VIF). The result is in the table below. Issue of multicollinearity is negligible for no VIF exceeds 5.  
+```{r}
+vif <- vif(final_model) %>% as.data.frame()
+kable(vif, "latex", booktabs = T,
+      digits = 3,caption = "VIF of final model") %>% 
+  kable_styling(latex_options = "stripped", position = "center")
+```
 
 
 ## Conclusion
+
+```{r}
+options(scipen=999)
+tb_final <- broom::tidy(final_model, conf.level=0.95,
+                   conf.int = TRUE, exponentiate=T)
+kable(tb_final, "latex", booktabs = T, digits = 3,
+      caption="Coefficient Summary for Final Model") %>%
+  kable_styling(latex_options = "striped")
+```
 
 
 ## Reference
@@ -382,6 +419,7 @@ full_model <- lm(logprice ~ (year + dealer + origin_cat + diff_origin +
 
 summary(full_model)
 ```
+
 
 
 
