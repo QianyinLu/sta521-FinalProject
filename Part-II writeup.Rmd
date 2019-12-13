@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo=FALSE,
                       results="asis")
 ```
 
-```{r pakages}
+```{r packages, echo = F, message = F, warning = F}
 library(tidyverse)
 library(knitr)
 library(gbm)
@@ -59,14 +59,14 @@ Based on EDA of Part-I, we improved our data cleaning on our data as follows:
  - In Part-I we discarded the variable *authorstandard* which can be a strong predictor. Here we cleaned *authorstandard* so it contains fewer unique values. We computed the average price for each author and ploted them in a descending order (See plot below). The plot showed that the relationship between author and price is significant. So we created a binary variable *expensive*, we set the authors with high average price to 1 and the others to 0. The variable we built actually captures a sginificant amount of variation in the response variable. the regression of *expensive* on *logprice* achieved an $R^2 = 0.157$. 
  - To avoid overfitting, we regrouped *dealer* and *endbuyer* into three levels respectively. Specifically, we combined 'L' and 'P' in *dealer* and 'E' and 'U' in *endbuyer*. 
 
-```{r read-data}
+```{r read-data, echo = F, message = F, warning = F}
 load("paintings_train.Rdata")
 load("paintings_test.Rdata")
 ```
 
 
 
-```{r data cleaning}
+```{r data cleaning, echo = F, message = F, warning = F}
 # merge the two dataset first
 paint <-rbind(paintings_train, paintings_test)
 
