@@ -482,13 +482,13 @@ paintings_validation$expensive[is.na(paintings_validation$expensive)] <- level[2
 fitted <- exp(predict(new, newdata = paintings_validation))
 Top10 <- cbind(paintings_validation, fitted) %>% arrange(desc(fitted)) %>% slice(1:10)
 ```
-Using our model for predicting price for validation data set, we got our top 10 valuable paintings. We can see that these paintings share certain important features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C and the dealer devotes an additional paragraph etc.
+Using our model for predicting price for validation data set, we got our top 10 valuable paintings. We can see that these paintings all share certain important features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C, the dealer devotes an additional paragraph and an intermediary is involved in the transaction etc. This is quite expected due to the way we constructed our model. 
 
 ```{r}
-predictions = as.data.frame(
-  exp(predict(new, newdata=paint_test, 
+predictions_validation = as.data.frame(
+  exp(predict(new, newdata=paintings_validation, 
               interval = "pred")))
-save(predictions, file="predict-test.Rdata")
+save(predictions_validation, file="paintings_validation.Rdata")
 ```
 
 
