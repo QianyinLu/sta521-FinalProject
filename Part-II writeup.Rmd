@@ -308,7 +308,7 @@ From the analysis so far our main problem is overfitting. This might be improved
 
 In addition to the variables we used in the random forrest model, we also added interactions based on the p-value of these interactions (See Appendix for the summary of the full model), namely *dealer* with *year*, *authorstyle* and *discauth*, *year* and *discauth*. The results can be summarised as follows: 
 
-```{r bma}
+```{r bma, cache=T}
 library(BAS)
 model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
@@ -329,8 +329,8 @@ df4 <- data.frame(variable = lm_bas$namesx,
                   row.names = NULL) %>% arrange(desc(coef))
 ```
 
-```{r bma table}
 
+```{r bma table}
 kable(df4, "latex", booktabs = T,
       digits = 3, caption = "Coefs and C.I. of best BMA model") %>% 
   kable_styling(position = "center", latex_options = "striped")
@@ -390,7 +390,7 @@ To check for the multicollinearity problem, we used variance inflation factor (V
 vif <- vif(final_model) %>% as.data.frame()
 kable(vif, "latex", booktabs = T,
       digits = 3,caption = "VIF of final model") %>% 
-  kable_styling(latex_options = "stripped", position = "center")
+  kable_styling(latex_options = "striped", position = "center")
 ```
 
 
