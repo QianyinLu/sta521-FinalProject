@@ -36,6 +36,15 @@ library(BAS)
 
 ## Introduction
 
+Our team of esteemed statisticians was recently hired by a prestigious art historian for a consulting project. We were asked to help build a predictive model in exchange for an A on our STA 521 Final Exam. After much discussion, our team accepted the historian's offer. 
+We were given the task of predicting paintings' selling prices at auctions in 18th century Paris. To accomplish this, we used a dataset containing information about each painting's buyer, seller, painter, and characteristics of the painting. 
+There were two primary objectives in our analysis:
+1) To determine which variables (or interactions) drove the price of a painting
+2) To determine which paintings were overpriced or and which were underpriced. 
+The first objective could be accomplished through EDA and modeling. Getting to know the dataset through EDA helps our team identify relationships in the data and develop a sense of which variables might be important for prediction. This developed intuition of the data helps our team begin modeling the logprice variable. After an extensive modeling process, we can report with confidence which variables are drivers of a painting’s selling price. 
+When we fit the final model, we can calculate how far each painting’s selling price deviates from our prediction. Positive residuals indicate that a painting sold for more than we think it is worth. The opposite goes for negative residuals. Therefore, we can achieve our second goal through a residual plot analysis of our model.
+We had 1,500 observations to train the model on, along with 750 observations held out as a testing set. There was a total of 59 variables in the dataset, both categorical and continuous.
+
 
 ## EDA
 
@@ -229,15 +238,26 @@ ggpairs(paint_train, columns = c(5, 26:32),
 For EDA in Part-II, we added pairwise plot to have a general view of the interactions of all the variables. 
 
 
-## Discussion of preliminary model Part I
+## Discussion of Preliminary Model
+```{r Preliminary Model, echo = F, message = F, warning = F}
+prelim_data <- data.frame(Bias = 120.29, Coverage = 95.6, MaxDeviation = 52516.79, MeanAbsDeviation = 551.74, RMSE = 2363.27)
 
+kable(prelim_data, caption = "Results from Preliminary Model")
+
+```
+
+After the test data was updated at 11 P.M. on December 12th, we went back to our preliminary model to check our true results. It turns out that this linear regression model was actually achieving 95.6% coverage instead of the mentioned 65% coverage in our Part I write-up. The bias was also significantly lower than we thought, coming in at 120.3. Our RMSE was still large, though, resulting in a score of 2360.
+
+This model has low bias and high variance, meaning that we overfit the data. Coverage is sufficient so we want to focus our attention on improving the RMSE. This can be achieved through the bias-variance trade-off. We can significantly reduce the variance if we induce a little more bias into our model, thus improving our RMSE score. 
+
+The mean deviation was 551.74 but the max deviation was over 50,000. Our model is doing a good job on most predictions, but there are a few predictions that are extremely off, inflating the RMSE score. Our goal moving forward is to improve on these extreme cases and to introduce a little more bias into the model to produce a lower RMSE.
 
 ## Development of the final model
 
 We tried several complex models to better depict the behaviour of the response variable. The findings of those models are summarised as below. 
 
 
-### Random Forrest
+### Random Forest
 
 Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the DEA above. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. From random forrest we obtained the 5 least important variables and discarded them in further modeling. The variables are displayed in the table below. 
   
