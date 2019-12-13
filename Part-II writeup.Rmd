@@ -374,7 +374,7 @@ new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
 avPlots(new_lm)
 ```
 
-From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat*, *diff_origin* and *year*:*dealer*, so we deleted these variables to refit the linear model. Our final model can be summarised as follows: 
+From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat* and *year*:*dealer*, so we deleted these variables to refit the linear model. Our final model can be summarised as follows: 
 
 $$
 \begin{aligned}
@@ -384,7 +384,7 @@ $$
 $$
 
 ```{r final model, fig.asp=1}
-new <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = paint_train)
+new <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont + diff_origin, data = paint_train)
 final_model <- new
 ```
 
