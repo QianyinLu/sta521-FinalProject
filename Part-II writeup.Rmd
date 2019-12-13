@@ -29,6 +29,8 @@ library(kableExtra)
 library(broom)
 library(car)
 library(GGally)
+library(caret)
+library(randomForest)
 ```
 
 ## Introduction
@@ -44,8 +46,8 @@ Based on EDA of Part-I, we completed our data cleaning on our data as follows:
  - To alleviate the class imbalance problem of *school-pntg*, *origin_cat*, *mat* and *material*, we regrouped levels with fewer observations to larger levels. 
  - We transformed *nfigures* into a binary variable where values other than 0 are set to 1. 
  - In Part-I we imputed the NA's in *Surface* to median value of *Surface*. Here we tried more advanced methods by regressing other variables on *Surface* to see the correlations. We found out that *Surface* was correlated with *MaterialCat* and *relig*, from which we devided the data into 8 groups and imputed median value for each group respectively. We tested the efficiency of the new imputation and the result showed that *Surface* has more explanation power than before. 
- - In Part-I we discarded the variable *authorstandard* which can be a strong predictor. Here we cleaned *authorstandard* so it contains fewer unique values. We computed the average price for each author and ploted them in a descending order. The plot showed that the relationship between author and price is significant. So we created a binary variable *expensive*, we set the authors with high average price to 1 and the others to 0. 
- - 
+ - In Part-I we discarded the variable *authorstandard* which can be a strong predictor. Here we cleaned *authorstandard* so it contains fewer unique values. We computed the average price for each author and ploted them in a descending order (See plot below). The plot showed that the relationship between author and price is significant. So we created a binary variable *expensive*, we set the authors with high average price to 1 and the others to 0. 
+ - To avoid overfitting, we regrouped *dealer* and *endbuyer* into three levels respectively. Specifically, we combined 'L' and 'P' in *dealer* and 'E' and 'U' in *endbuyer*. 
 
 ```{r read-data}
 load("paintings_train.Rdata")
@@ -222,18 +224,39 @@ ggpairs(paint_train, columns = c(5, 26:32),
         lower = list(continuous = wrap("points", alpha = 0.5, size = 0.3)))+
   theme(axis.text = element_text(angle = 45, hjust = 1))
 ```
-The strong predictors are 
+For EDA in Part-II, we added pairwise plot to have a general view of the interactions of all the variables. 
 
 
+## Discussion of preliminary model Part I
+
+
+## Development of the final model
+
+We tried several complex models to better depict the behaviour of the response variable. The findings of those models are summarised as below. 
+
+### Random Forrest
+
+Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. 
+  
+To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to the narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
 
 ```{r tree}
 library(randomForest)
-rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin +  
+set.seed(11)
+rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth, 
                    data = paint_train, mytry = 6, importance = T)
 varImpPlot(rf)
+
+
+rf <- randomForest(logprice ~ ., 
+                   data = paint_train, mytry = 6, importance = T)
+varImpPlot(rf)
+ImpMeasure<-data.frame(Overall = varImp(rf)$Overall)
+ImpMeasure$Vars<-rownames(varImp(rf))
+kable(ImpMeasure[order(-ImpMeasure$Overall),][1:10,])
 
 # training set 
 rf_pred_train <- predict(rf, newdata = paint_train, type = "response")
@@ -243,12 +266,11 @@ return(rmse)
 }
 
 rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
-
-compare <- cbind(paint_train, ypred = rf_pred_train)
-ggplot(compare, aes(x = logprice, y = ypred)) +
-  geom_point(size = 0.5) + 
-  geom_abline(intercept = 0, slope = 1, col = "light pink") +
-  geom_smooth(method = "lm", se = T)
+# compare <- cbind(paint_train, ypred = rf_pred_train)
+# ggplot(compare, aes(x = logprice, y = ypred)) +
+#   geom_point(size = 0.5) + 
+#   geom_abline(intercept = 0, slope = 1, col = "light pink") +
+#   geom_smooth(method = "lm", se = T)
 ```
 
 ```{r test set validation}
@@ -272,7 +294,6 @@ model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
 
-
 summary(model_ini)
 
 n <- nrow(paint_train)
@@ -290,6 +311,7 @@ predictions = as.data.frame(
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
+
 
 ```{r bma}
 library(BAS)
