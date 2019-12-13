@@ -28,7 +28,6 @@ load("paintings_test.Rdata")
 ### Initial data cleaning
 
 ```{r data cleaning}
-
 # merge the two dataset first
 paint <-rbind(paintings_train, paintings_test)
 
@@ -157,8 +156,8 @@ train_author <- paint_train %>%
   group_by(authorstandard) %>% 
   summarise(avg_price = mean(price)) %>% 
   arrange(desc(avg_price)) %>% 
-  mutate(expensive = case_when(avg_price >= 1500 ~ level[1],
-                           avg_price < 1500 ~ level[2]))
+  mutate(expensive = case_when(avg_price >= 2000 ~ level[1],
+                           avg_price < 2000 ~ level[2]))
 
 # attribute each author name to its group
 author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
@@ -217,14 +216,10 @@ TRAIN <- paint_train[n,]
 VALIDATE <- paint_train[-n,]
 ```
 
-### RMSE and Coverage Functions
-
 ```{r RMSE and Coverage}
-
 coverage <- function(y, pi) {
   return(mean(y >= pi[,1] & y <= pi[,2]))
 }
-
 coverage.test <- function(model, newdata, response,
               conf.level = 0.95, transform = identity) {
   
@@ -241,18 +236,21 @@ coverage.test <- function(model, newdata, response,
   
   return (output)
 }
-
 # Pass in results of coverage.test
-coverage.plot <- function(output, conf.level = 0.95) {
+coverage.plot <- function(output, rmse, conf.level = 0.95, model) {
   
   ggplot(output, aes(x = fit, y = response)) +
     geom_point(aes(color = output$covered)) +
     geom_ribbon(mapping = aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.2) +
-    labs(title = paste0(conf.level*100, "% Prediction Interval Coverage"),
+    labs(title = paste0(conf.level*100, "% Prediction Interval on Unseen Data"),
          x = "Predicted Value of Log Price", y = "Observed Value of Log Price") +
-    theme_bw() 
-}
-
+    theme_bw() + 
+    theme(legend.position = "none")  +
+    annotate("text", x = 1.75, y = 10.05, label = paste("RMSE:", rmse),
+  parse = TRUE) +
+    annotate("text", x = 1.75, y = 9.35, label = paste("Coverage: ", mean(output$covered)*100, "%")) +
+    annotate("text", x = 2.1, y = 10.75, label = paste("Model:", model))
+  }
 rmse = function(obs, pred) { sqrt(sum((obs - pred)^2)/length(obs))}
 ```
 
@@ -260,20 +258,81 @@ rmse = function(obs, pred) { sqrt(sum((obs - pred)^2)/length(obs))}
 ### Example Coverage and RMSE
 
 ```{r Example}
-lm1 <- lm_bas 
-
-rmse(exp(predict(lm1, newdata = VALIDATE)$fit), exp(VALIDATE$logprice)) # on new data
+lm1 <- lm(logprice ~ year + dealer + expensive+
+                         authorstyle + endbuyer + Interm + Surface +  
+                         finished + lrgfont, data = TRAIN)
+RMSE_lm <- rmse(exp(predict(lm1, newdata = VALIDATE)), exp(VALIDATE$logprice)) # on new data
 rmse(exp(predict(lm1)), exp(TRAIN$logprice)) # on seen data
-
 cov_data <- coverage.test(lm1, VALIDATE, VALIDATE$logprice)
-coverage.plot(cov_data)
+coverage.plot(cov_data, RMSE_lm, model = "Linear Regression")
 ```
+
+```{r RF}
+library(randomForest)
+set.seed(11)
+rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth, 
+                   data = TRAIN, mytry = 6, importance = T)
+pred1 <- predict(rf, newdata = VALIDATE, predict.all=TRUE)
+pred1_int <- apply(pred1$individual, 1, function(x) {
+  quantile(x, c(0.5, 0.025, 0.975))
+})
+rfdf <- data.frame(t(pred1_int))
+rfdf$response <- VALIDATE$logprice
+names(rfdf) <- c('fit', 'lower', 'upper', 'response')
+rfdf <- rfdf %>%
+    mutate(covered = (response >= lower & response <= upper))
+RMSE.rf <- rmse(exp(predict(rf, newdata = VALIDATE)), exp(VALIDATE$logprice))
+coverage.plot(rfdf, RMSE.rf, model = "Random Forest")
+```
+
+
+```{r BMA}
+library(BAS)
+set.seed(521)
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth  + (year + authorstyle + discauth):dealer + year:discauth, data = TRAIN)
+lm_bas <- bas.lm(model_ini, data = paint_train, 
+              prior = "g-prior", alpha = nrow(TRAIN), 
+              modelprior = uniform(), method = "MCMC")
+plot(lm_bas, which = 4)
+# estimates under BMA model
+summary.bas <- confint(coef(lm_bas))
+df4 <- data.frame(variable = lm_bas$namesx, 
+                  coef = summary.bas[,3],
+                  lwr = summary.bas[,1],
+                  upr = summary.bas[,2],
+                  row.names = NULL) %>% arrange(desc(coef))
+kable(df4, digits = 3, caption = "Coefs and C.I. of best BMA model sorted
+by coefs from high to low")
+coef(lm_bas, estimator = "BMA")
+#predictions
+x = predict(lm_bas, estimator = "BMA",newdata = VALIDATE, se.fit = T)
+ints = data.frame(matrix(confint(x, parm = "pred"), nrow = 400, ncol=3))
+names(ints) <- c('lower','upper','fit')
+ints$response <- VALIDATE$logprice
+ints <- ints %>%
+    mutate(covered = (response >= lower & response <= upper))
+RMSE.bma <- rmse(exp(predict(lm_bas, newdata = VALIDATE)$fit), exp(VALIDATE$logprice))
+coverage.plot(ints, RMSE.bma, model = "BMA")
+```
+```{r}
+lm1 <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth  + (year + authorstyle + discauth):dealer + year:discauth, data = TRAIN)
+```
+
 
 ```{r}
 library(randomForest)
 library(caret)
 set.seed(1)
-rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive +
+rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth, 
@@ -281,19 +340,24 @@ rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensi
 varImpPlot(rf)
 ImpMeasure<-data.frame(Overall = varImp(rf)$Overall)
     ImpMeasure$Vars<-rownames(varImp(rf))
-ImpMeasure[order(-ImpMeasure$Overall),][1:10,]
+ImpMeasure[order(-ImpMeasure$Overall),][15:19,]
+
 
 ```
 
 ```{r}
-importance
+lo<-lm(logprice~year + dealer + origin_cat + diff_origin + expensive+
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                          + finished + lrgfont + 
+                          year :dealer, data = paint_train)
+avPlots(lo)
 ```
 
 
 ### BMA
 ```{r}
 library(BAS)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive +
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth  + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
@@ -314,12 +378,18 @@ coef(lm_bas, estimator = "BMA")
 
 
 #predictions
-x = predict(lm_bas, estimator = "BMA",newdata = VALIDATE, se.fit = T)
+x = predict(lm_bas, estimator = "BMA",newdata = paint_test, se.fit = T)
 interval = confint(x, parm = "pred")
-predictions <- exp(interval) %>% as.matrix()
-colnames(predictions) <- c("fit","lwr", "upr")
+confint <- exp(interval)
+predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
 
 ```
+
+
+
+
+
+### Predictions 
 
 ```{r}
 predictions = as.data.frame(
@@ -327,6 +397,11 @@ predictions = as.data.frame(
               interval = "pred")))
 save(predictions, file="predict-test.Rdata")
 ```
+
+
+
+
+
 
 
 
