@@ -31,7 +31,7 @@ library(car)
 library(GGally)
 library(caret)
 library(randomForest)
-library(BMA)
+library(BAS)
 ```
 
 ## Introduction
@@ -396,6 +396,172 @@ kable(vif, "latex", booktabs = T,
 To check for the multicollinearity problem, we used variance inflation factor (VIF). The result is in the table above. Issue of multicollinearity is negligible for no VIF exceeds 5.  
 
 
+### Predictions of Validation set and Top 10 paintings
+```{r}
+#make same changes to validation set
+load("paintings_validation.RData")
+paintings_validation
+# Fix position > 1
+paintings_validation$position[paintings_validation$position > 1] <- paintings_validation$position[paintings_validation$position > 1]/100
+
+# regroup some categorical variables
+paintings_validation <- paintings_validation %>%
+  mutate(winningbiddertype = as.factor(dplyr::recode(na_if(winningbiddertype,""),
+                                              .missing = 'U')),
+         dealer = as.factor(dplyr::recode(dealer, 
+                                          'L' = 'LP', 
+                                          'P' = 'LP')), 
+         endbuyer = as.factor(dplyr::recode(na_if(endbuyer,""),
+                                     .missing = 'EU',
+                                     'E' = 'EU', 
+                                     'U' = 'EU',
+                                     'B' = 'C')),
+         Interm = as.factor(dplyr::recode(Interm,
+                                   .missing = 0,
+                                   `0` = 0,
+                                   `1` = 1)),
+         authorstyle = dplyr::recode(authorstyle,
+                                      "n/a" = 0,
+                                      .default = 1),
+         type_intermed = as.factor(dplyr::recode(na_if(type_intermed,''),
+                                          .missing='Unknown')),
+         Shape = as.factor(dplyr::recode(na_if(Shape,""),
+                                  .missing = 'other',
+                                  'squ_rect' = 'squ_rect',
+                                  .default = 'other')),
+         materialCat = as.factor(dplyr::recode(na_if(materialCat,""),
+                                        .missing = 'other')),
+         school_pntg = as.factor(dplyr::recode(school_pntg,
+                                               'S' = 'X',
+                                               'A' = 'X',
+                                               'G' = 'X')), 
+
+         origin_cat = as.factor(dplyr::recode(origin_cat,
+                                    "S" = "O")), 
+
+         nfigures = as.factor(dplyr::recode(nfigures,
+                                            `0` = 0,
+                                            .default = 1))) %>%
+  # change variables into appropriate format
+
+  mutate_at(vars(dealer, origin_author, origin_cat, school_pntg, 
+                 diff_origin, artistliving, authorstyle, 
+                 winningbiddertype, endbuyer, Interm, type_intermed, 
+                 material, mat, materialCat, Shape, engraved, original, 
+                 prevcoll, othartist, paired, figures, finished, lrgfont, 
+                 relig, landsALL, lands_sc, lands_elem, lands_figs, lands_ment, 
+                 arch, mytho, peasant, othgenre, singlefig, portrait, 
+                 still_life, discauth, history, allegory, pastorale,other), as.factor) 
+
+# impute Surface on different groups
+
+paintings_validation <- paintings_validation %>% mutate(Key = seq(1:nrow(paintings_validation)))
+
+paint1 <- paintings_validation %>% filter(materialCat == 'canvas', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                          `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint2 <- paintings_validation %>% filter(materialCat == 'canvas', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint3 <- paintings_validation %>% filter(materialCat == 'copper', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint4 <- paintings_validation %>% filter(materialCat == 'copper', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint5 <- paintings_validation %>% filter(materialCat == 'other', relig == 1) %>% 
+
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint6 <- paintings_validation %>% filter(materialCat == 'other', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paint7 <- paintings_validation %>% filter(materialCat == 'wood', relig == 1) %>% 
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm = T)))
+
+paint8 <- paintings_validation %>% filter(materialCat == 'wood', relig == 0) %>%
+  mutate(Surface = dplyr::recode(Surface,
+                                 `0` = median(Surface, na.rm = T),
+                          .missing = median(Surface, na.rm=T)))
+
+paintings_validation <- rbind(paint1, paint2, paint3, paint4, paint5, paint6, paint7, paint8) %>% 
+  arrange(Key) %>% 
+  select(-Key) %>% 
+  dplyr::select(-c("sale", "lot", "count","subject", "author", "origin_author",
+                   "winningbidder","type_intermed","material","mat", "still_life", "portrait",
+                   "Diam_in","Surface_Rnd","Surface_Rect","Width_in","Height_in","other",
+                   "pastorale","history","lands_ment","original","allegory","position",
+                   "school_pntg", "winningbiddertype", "figures", "singlefig"))
+
+paintings_validation$Surface <- log(paintings_validation$Surface)
+
+remove <- c("attributed to ", "after ", "in the manner of ", "in the taste of ", "in the genre of ", "in the style of ")
+
+paintings_validation$authorstandard <- str_remove_all(paintings_validation$authorstandard, 
+                                             paste(remove, collapse = "|"))
+
+level <- c(1, 0)
+
+train_author <- paint_train %>% 
+  group_by(authorstandard) %>% 
+  summarise(avg_price = mean(price)) %>% 
+  arrange(desc(avg_price)) %>% 
+  mutate(expensive = case_when(avg_price >= 2000 ~ level[1],
+                           avg_price < 2000 ~ level[2]))
+
+# attribute each author name to its group
+author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
+  set_names(level)
+
+# group the training set
+paint_train <- paint_train %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
+           as.factor())
+
+# group the test set using same metric, set new authors to 0
+paint_test <- paint_test %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
+                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
+           as.factor)
+paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
+
+
+paintings_validation <- paintings_validation %>% 
+  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1],
+                              authorstandard %in% author_group[[2]] ~ level[2]) %>% as.factor)
+paintings_validation$expensive[is.na(paintings_validation$expensive)] <- level[2]
+
+```
+
+
+```{r}
+#predict top 10
+fitted <- exp(predict(final_model, newdata = paintings_validation))
+Top10 <- cbind(paintings_validation, fitted) %>% arrange(desc(fitted)) %>% slice(1:10)
+```
+Using our model for predicting price for validation data set, we got our top 10 valuable paintings. We can see that these paintings all share certain important features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C, the dealer devotes an additional paragraph and an intermediary is involved in the transaction etc. This is quite expected due to the way we constructed our model. 
+
+```{r}
+predictions_validation = as.data.frame(
+  exp(predict(final_model, newdata=paintings_validation, 
+              interval = "pred")))
+save(predictions_validation, file="paintings_validation.Rdata")
+```
 
 ## Conclusion
 
