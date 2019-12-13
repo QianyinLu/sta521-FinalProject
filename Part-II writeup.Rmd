@@ -255,7 +255,7 @@ rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensi
 varImpPlot(rf)
 ImpMeasure<-data.frame(Overall = varImp(rf)$Overall)
 ImpMeasure$Vars<-rownames(varImp(rf))
-kable(ImpMeasure[order(-ImpMeasure$Overall),][1:10,], digits = 3)
+kable(ImpMeasure[order(-ImpMeasure$Overall),][15:19,], digits = 3)
 
 # training set 
 rf_pred_train <- predict(rf, newdata = paint_train, type = "response")
@@ -271,6 +271,8 @@ rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
 #   geom_abline(intercept = 0, slope = 1, col = "light pink") +
 #   geom_smooth(method = "lm", se = T)
 ```
+
+From random forrest we obtained the 5 least important variables and discarded them in further modeling. The variables are displayed in the table above. 
 
 ```{r test set validation}
 # pred1 <- predict(rf, newdata = paint_test, predict.all=TRUE)
@@ -296,7 +298,10 @@ n <- nrow(paint_train)
 ini_bic <- step(model_ini, trace = F, k = log(n))
 ini_aic <- step(model_ini, trace = F, k = 2)
 ```
+  
 From the analysis so far our main problem is overfitting. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
+
+In addition to the variables we used in the random forrest model, we also added interactions based on the p-value of these interactions (See Appendix for the summary of the full model), namely *dealer* with *year*, *authorstyle* and *discauth*, *year* and *discauth*. The results can be summarised as follows: 
 
 ```{r bma}
 library(BAS)
@@ -316,6 +321,7 @@ df4 <- data.frame(variable = lm_bas$namesx,
                   lwr = summary.bas[,1],
                   upr = summary.bas[,2],
                   row.names = NULL) %>% arrange(desc(coef))
+
 kable(df4, digits = 3, caption = "Coefs and C.I. of best BMA model sorted
 by coefs from high to low")
 coef(lm_bas, estimator = "BMA")
@@ -326,13 +332,16 @@ interval = confint(x, parm = "pred")
 confint <- exp(interval)
 predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
 ```
+From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *year*:*dealer* since their margnial inclusion probability is less than 0.5. 
 
 
 
 ```{r new linear model}
-new <- lm(logprice ~ year + dealer + expensive + 
-                         authorstyle + endbuyer + Interm + Surface +  
-                         finished + lrgfont, data = paint_train)
+new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth)
+new <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = paint_train)
 avPlots(new_lm)
 print(av)
 plot(new)
@@ -361,8 +370,18 @@ save(predictions, file="predict-test.Rdata")
 
 
 ## Reference
+  
+[1] Hoeting, Jennifer A., et al. “Bayesian Model Averaging: A Tutorial.” Statistical Science, vol. 14, no. 4, 1999, pp. 382–401. JSTOR, www.jstor.org/stable/2676803.
 
+## Appendix
+```{r full}
+full_model <- lm(logprice ~ (year + dealer + origin_cat + diff_origin +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth)^2, data = paint_train)
 
-## Conclusion
+summary(full_model)
+```
+
 
 
