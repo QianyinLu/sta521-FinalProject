@@ -311,7 +311,7 @@ In addition to the variables we used in the random forrest model, we also added 
 
 ```{r bma}
 library(BAS)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + exchange
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
@@ -390,7 +390,7 @@ Looking at the diagnostic plots, our final model seems to satisfy the assumption
 vif <- vif(final_model) %>% as.data.frame()
 kable(vif, "latex", booktabs = T,
       digits = 3,caption = "VIF of final model") %>% 
-  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
+  kable_styling(position = "center", latex_options = c("striped", "HOLD_position"))
 ```
   
 To check for the multicollinearity problem, we used variance inflation factor (VIF). The result is in the table above. Issue of multicollinearity is negligible for no VIF exceeds 5.  
@@ -404,7 +404,7 @@ tb_final <- broom::tidy(final_model, conf.level=0.95,
                    conf.int = TRUE, exponentiate=T)
 kable(tb_final, "latex", booktabs = T, digits = 3,
       caption="Coefficient Summary for Final Model") %>%
-  kable_styling(position = "center", latex_options = c("striped", "hold_position"))
+  kable_styling(position = "center", latex_options = c("striped", "HOLD_position"))
 ```
   
 
