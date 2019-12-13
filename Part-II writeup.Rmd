@@ -197,6 +197,7 @@ paint_test <- paint_test %>%
 paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
 ```
 
+
 ```{r try}
 lm1 <- lm(logprice~expensive, data = paint_train)
 summary(lm1)
@@ -237,12 +238,14 @@ We tried several complex models to better depict the behaviour of the response v
 
 ### Random Forrest
 
-Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. 
+Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the DEA above. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. 
   
 To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to the narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
 
+### still need predictive checks ###
+
 ```{r tree}
-set.seed(521)
+set.seed(222)
 rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
@@ -270,14 +273,14 @@ rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
 ```
 
 ```{r test set validation}
-pred1 <- predict(rf, newdata = paint_test, predict.all=TRUE)
-
-pred1_int <- apply(pred1$individual, 1, function(x) {
-  quantile(x, c(0.5, 0.025, 0.975))
-})
-
-predictions_rf <- t(exp(pred1_int)) %>% as.data.frame()
-colnames(predictions_rf) <- c("fit", "lwr", "upr")
+# pred1 <- predict(rf, newdata = paint_test, predict.all=TRUE)
+# 
+# pred1_int <- apply(pred1$individual, 1, function(x) {
+#   quantile(x, c(0.5, 0.025, 0.975))
+# })
+# 
+# predictions_rf <- t(exp(pred1_int)) %>% as.data.frame()
+# colnames(predictions_rf) <- c("fit", "lwr", "upr")
 ```
 
 ### Bayesian Model Averaging
@@ -289,27 +292,23 @@ model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
 
-summary(model_ini)
-
 n <- nrow(paint_train)
 ini_bic <- step(model_ini, trace = F, k = log(n))
 ini_aic <- step(model_ini, trace = F, k = 2)
-summary(ini_bic)
-summary(ini_aic)
 ```
-
-
+From the analysis so far our main problem is overfitting. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
 
 ```{r bma}
 library(BAS)
-model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + 
+model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
                          authorstyle + endbuyer + Interm + Surface + materialCat + 
-                         prevcoll + paired + finished + lrgfont + 
-                         lands_elem + othgenre + (year + authorstyle):dealer, data = paint_train)
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
 lm_bas <- bas.lm(as.formula(model_ini), data = paint_train, 
               prior = "g-prior", alpha = nrow(paint_train), 
               modelprior = uniform(), method = "MCMC")
 plot(lm_bas, which = 4)
+
 # estimates under BMA model
 summary.bas <- confint(coef(lm_bas))
 df4 <- data.frame(variable = lm_bas$namesx, 
@@ -330,18 +329,14 @@ predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2
 
 
 
-```{r}
-new_lm <- lm(logprice ~ year + dealer + diff_origin + 
-                         authorstyle + endbuyer + Interm + Surface + materialCat + 
-                         prevcoll + paired + finished + lrgfont + 
-                         lands_elem + year:dealer, data = paint_train)
+```{r new linear model}
 new <- lm(logprice ~ year + dealer + expensive + 
                          authorstyle + endbuyer + Interm + Surface +  
                          finished + lrgfont, data = paint_train)
 avPlots(new_lm)
 print(av)
-
-vif(new_lm)
+plot(new)
+vif(new)
 ```
 
 
@@ -358,5 +353,16 @@ save(predictions, file="predict-test.Rdata")
 
 
 
+
+## Summary
+
+
+## Conclusion
+
+
+## Reference
+
+
+## Conclusion
 
 
