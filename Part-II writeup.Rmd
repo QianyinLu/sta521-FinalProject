@@ -39,7 +39,7 @@ library(BAS)
 
 ## EDA
 
-Based on EDA of Part-I, we completed our data cleaning on our data as follows: 
+Based on EDA of Part-I, we improved our data cleaning on our data as follows: 
  
  - *position* has values greater than 1 which should be data entry errors, we divided them by 100 to get the right value. 
  - The original dataset contains lots of missing values and NA's, like *winningbiddertype*, *endbuyer*, *authorstyle*, *Interm* and *type_intermed*, we filled the missing values with "U", "Unknown" or 0 according to the description of codebook. 
