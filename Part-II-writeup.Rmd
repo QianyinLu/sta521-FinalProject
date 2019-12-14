@@ -620,7 +620,42 @@ kable(tb_final, "latex", booktabs = T, digits = 3,
   kable_styling(position = "center", latex_options = c("striped", "HOLD_position")) %>% 
   footnote(general = "The coefficients have been exponentiated.")
 ```
+
+Looking at the coefficient summary table, we can get the following conclusion. 
+
+First of all, in our model we got the most important variables *year*, *dealer*, *expensive*, *authorstyle*, *endbuyer* ,*Interm*, *Surface*, *finished*, *lrgfont*, *diff_origin*. 
+
+Then, holding all other variables constant,
+
+  - On average, one unit increase in *year* will lead to 12.0% increase in price. We are 95% confident the increase is between about 10.5% and 13.6%.  
+ 
+  - In data manipulation part, we regrouped *dealer* by grouping 'L' and 'P' together as 'LP' since their corresponding average logprices are similar. Compared to dealer J, dealer LP is expected to lead to 156.8% increase in price, and we are 95% confident the decrease is between about 106.0% and 220.0%; Dealer R is expected to lead to 435.6% increase in price, and we are 95% confident the increase is between about 337.4% and 555.8%.
   
+  - If the painting is drawn by an artist whose paintings' average price is higher than $2000, the price is expected to increase by 260.5%. We are 95% confident the increase is between about 192.6% and 344.2%.
+  
+  - If the authors name is introduced, the price is expected to decrease by 61.2%. We are 95% confident the decrease is between about 48.2% and 70.9%.
+  
+  - In data manipulation part, we regrouped *endbuyer* by grouping 'U' (identity unknown), 'E'  (expert organizing the sale) and blank data (no information) together as 'EU', grouping 'B' (buyer) and 'C' (collector) together as 'C' and left 'D' (dealer) as it was. Compared to an endbuyer in group 'C', a group 'D' endbuyer is expected to lead to 21.2% decrease in price, and we are 95% confident the decrease is between about 4.1% and 35.4%; A group 'EU' endbuyer is expected to lead to 50.6% decrease in price, and we are 95% confident the decrease is between about 39.6% and 59.6%.  
+
+  - If an intermediary is involved in the transaction, the price is expected to increase by 99.6%. We are 95% confident the increase is between about 53.7% and 159.1%.
+
+  - We expect 10% increase in *Surface* will increase the price by 3.0% ($1.1^{\hat{\beta}_1} - 1$). We are 95% confident the increase is between about 2.5% and 3.5%.
+
+  - If the the painting is finished, the price is expected to increase by 135.1%. We are 95% confident the increase is between about 96.9% and 180.6%.
+  
+  - If the dealer devotes an additional paragraph, the price is expected to increase by 143.6%. We are 95% confident the increase is between about 92.6% and 208.0%.
+  
+  - If origin_author is different than origin_cat, the price is expected to decrease by 38.7%. We are 95% confident the increase is between about 27.6% and 48.1%.
+
+Looking at the p-values, we find that all variables are extremelly important.
+
+In EDA process of part-I, we imputed the NA's in *Surface* to median value of *Surface*, we discarded the variable *authorstandard* and we grouped *dealer* and *endbuyer* into 4 and 5 levels respectively. And then we fitted a linear model. However, in part-II, our model were not good as we expected. We returned to EDA process and realized that there was still some infomation in raw data we did not pay enough attention. And thus we reworked the data manipulation process. In part-II, we devided the surface data into 8 groups based on the correlated data and imputed median value for each group respectively. We created a binary variable *expensive* representing if the painting is drawn by a painter whose paintings' averaging price is higher than $2000. And we also regrouped dealer and endbuyer to less levels to avoid overfitting. After data re-manipulation, the model performed better. 
+
+Before the test data was updated, we always felt upset because the coverage was always lower than our expectaiton even if we thought our model was already good enough. Some of our team members were so disappointed that they even thought about discarding *year* since this operation improved the coverage a lot. But luckily we were pretty sure that all operations need to be reasonable. We could not randomly discard some variables just for better coverage and RMSE. So we still followed the rigorous modeling process to fit our model, even if we did not get a score in wercker.
+
+After a few attempts, we had to give up our most prefered model Random Forests since it could not yield prediction interval and the quantile method was not ideal. We then used Bayesian Model Averaging to do feature selection and cross referenced the results of RF and BMA and fitted a new linear model, which achieved relatively great performance. We found that succinct model usually have higher coverage and easy interpretability so it's easier for clients to understand and linear model is generally a great model choice. 
+
+In terms of painting price prediction, we think that due to the particularity of art, the author often has a great impact on the price. Besides, year of sale, dealer, if the authors name is introduced, type of end buyer, whether or not an intermediary is involved in the transaction, surface of painting, if the painting is finished, if the dealer devotes an additional paragraph, if origin of author is different than origin of painting also have a great impact on the price of paintings.
 
 ## Reference
   
