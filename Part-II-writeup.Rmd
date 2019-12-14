@@ -42,7 +42,6 @@ library(GGally)
 library(caret)
 library(randomForest)
 library(BAS)
-ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
 ## Introduction
@@ -54,6 +53,7 @@ There were two primary objectives in our analysis:
  
  1) To determine which variables (or interactions) drove the price of a painting.  
  2) To determine which paintings were overpriced or and which were underpriced.  
+   
 The first objective could be accomplished through EDA and modeling. Getting to know the dataset through EDA helps our team identify relationships in the data and develop a sense of which variables might be important for prediction. This developed intuition of the data helps our team begin modeling the logprice variable. After an extensive modeling process, we can report with confidence which variables are drivers of a painting’s selling price.  
 When we fit the final model, we can calculate how far each painting’s selling price deviates from our prediction. Positive residuals indicate that a painting sold for more than we think it is worth. The opposite goes for negative residuals. Therefore, we can achieve our second goal through a residual plot analysis of our model.  
 We had 1,500 observations to train the model on, along with 750 observations held out as a testing set. There was a total of 59 variables in the dataset, both categorical and continuous.
@@ -200,7 +200,8 @@ train_author <- paint_train %>%
 
 ggplot(data = train_author, aes(y = avg_price, x = 1:473, col = as.factor(expensive))) +
   geom_point() +
-  labs(title = "Average price for each author", x = "Rank", y = "Average price")
+  labs(title = "Average price for each author", x = "Rank", y = "Average price")+
+  theme_linedraw()
 
 # attribute each author name to its group
 author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
@@ -403,7 +404,7 @@ From the Added variable plots above, we observed that the regression line is nea
 $$
 \begin{aligned}
 \text{logprice} &= \beta_0 + \beta_1 \text{year} + \beta_2 \text{dealer} + \beta_3 \text{expensive} + \beta_4 \text{authorstyle} + \beta_5 \text{endbuyer} \\
-&+ \beta_6 \text{Interm} + \beta_7 \text{Surface} + \beta_8 \text{finished} + \beta_9 \text{Irgfont} + \beta_{10} \text{diff_origin} + \epsilon
+&+ \beta_6 \text{Interm} + \beta_7 \text{Surface} + \beta_8 \text{finished} + \beta_9 \text{Irgfont} + \beta_{10} \text{diff-origin} + \epsilon
 \end{aligned}
 $$
 
