@@ -388,7 +388,7 @@ From the Added variable plots above, we observed that the regression line is nea
 $$
 \begin{aligned}
 \text{logprice} &= \beta_0 + \beta_1 \text{year} + \beta_2 \text{dealer} + \beta_3 \text{expensive} + \beta_4 \text{authorstyle} + \beta_5 \text{endbuyer} \\
-&+ \beta_6 \text{Interm} + \beta_7 \text{Surface} + \beta_8 \text{finished} + \beta_9 \text{Irgfont} + \epsilon
+&+ \beta_6 \text{Interm} + \beta_7 \text{Surface} + \beta_8 \text{finished} + \beta_9 \text{Irgfont} + \beta_{10} \text{diff_origin} + \epsilon
 \end{aligned}
 $$
 
