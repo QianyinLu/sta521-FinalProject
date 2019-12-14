@@ -43,6 +43,7 @@ library(caret)
 library(randomForest)
 library(BAS)
 library(ggpubr)
+library(gridExtra)
 ```
 
 ## Introduction
@@ -545,35 +546,11 @@ rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
   
 To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
 
-### still need predictive checks ###
-
-```{r test set validation, echo = F, message = F, warning = F}
-# pred1 <- predict(rf, newdata = paint_test, predict.all=TRUE)
-# 
-# pred1_int <- apply(pred1$individual, 1, function(x) {
-#   quantile(x, c(0.5, 0.025, 0.975))
-# })
-# 
-# predictions_rf <- t(exp(pred1_int)) %>% as.data.frame()
-# colnames(predictions_rf) <- c("fit", "lwr", "upr")
-```
-
 ### Lasso
+
 Apart from including random forests in our model development, we also put consideration into Lasso since this model is suitable for both variable selection and preventing overfitting through shrinkage. However, due to the fact that we have most of variables as categorical, some with multiple levels, it is hard to decide whether to normalize these predictors before modeling because if we do so, the result will depend on class prevalence and for multilevel predictors, we need to regroup them. The result will vary depending on our reference level and generate more difficulty for interpretation as well. In addition, similar to trees, Lasso doesn’t have an existing prediction interval and we will need to use bootstrap to obtain such interval. Thus, to make our model easier to understand and more convenient for predictions, we decide to move on and do not include Lasso in the model-building process.
 
 ### Bayesian Model Averaging
-
-```{r full model, echo = F, message = F, warning = F}
-# paint_train$year <- scale(paint_train$year, scale = F)
-# model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
-#                          authorstyle + endbuyer + Interm + Surface + materialCat + 
-#                          nfigures + engraved + prevcoll + paired + finished + lrgfont + 
-#                          lands_sc + lands_elem + othgenre + discauth + (year + authorstyle + discauth):dealer + year:discauth, data = paint_train)
-# 
-# n <- nrow(paint_train)
-# ini_bic <- step(model_ini, trace = F, k = log(n))
-# ini_aic <- step(model_ini, trace = F, k = 2)
-```
   
 From the analysis so far our main problem is **overfitting**. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
 
@@ -606,17 +583,12 @@ kable(df4, "latex", booktabs = T,
       digits = 3, caption = "Coefficient Summary of Best BMA model") %>% 
   kable_styling(position = "center", latex_options = c("striped", "hold_position"))
 
-#predictions
-# x = predict(lm_bas, estimator = "BMA",newdata = paint_test, se.fit = T)
-# interval = confint(x, parm = "pred")
-# confint <- exp(interval)
-# predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
 ```
 
 From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *auhtorstyle*:*dealer* since their margnial inclusion probability is less than 0.5. 
+### Linear Regressin and Further Variable Selection
 
-
-After cross referencing the result of random forrest and BMA, we decided to give another shot with simple models. So we discarded the variables that are not significant and refit a linear model. The problem of overfitting still exists. To further select variables, we used Added variable plots, which shows us the relationship between the response variable and one of the predictors in the regression model, after controlling for the presence of other predictors. 
+To be thorough with our analysis, we decided to fit one more linear regression model using what we learned from the Random Forest and BMA models. We cross referenced the important variables that the RF and BMA models agreed on, and used these in our linear model. However, our overfitting problem still exists so we agreed upon observing Added Variable plots for further variable selection. These plots show us the relationship between the response variable and one of the predictors in the regression model, after controlling for the presence of other predictors. 
 
 ```{r new linear model, echo = F, message = F, warning = F}
 new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
@@ -626,7 +598,216 @@ new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
 avPlots(new_lm)
 ```
 
-From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat* and *year*:*dealer*, so we deleted these variables to refit the linear model. **Our final model can be summarised as follows**: 
+From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat* and *year*:*dealer*, so we deleted these variables to refit the linear model. 
+
+### Model Selection
+
+Now that we have 3 models to compare, we created a series of functions that would sample data from the training set, train the model on this data, and calculate RMSE and Coverage on the remaining unseen validation observations. Since the linear model is quick to fit, we ran this sampling simulation 1000 times to obtain more stable results on the out-of-sample validation data. We also ran 50 simulations on the Random Forest algorithm and 5 BMA simulations. The results from the models on unseen validation data help us choose our final model.
+
+
+```{r RMSE and Coverage, echo = F, message = F, warning = F}
+
+coverage <- function(y, pi) {
+  return(mean(y >= pi[,1] & y <= pi[,2]))
+}
+
+coverage.test <- function(model, newdata, response,
+              conf.level = 0.95, transform = identity) {
+  
+    output <- NA
+    pred <- predict(model, newdata, level = conf.level,
+                    interval = "prediction", type = "response")
+    pred <- transform(pred)
+    
+    output <- data.frame(response, fit = pred[,1], lower = pred[,2], upper = pred[,3])
+  
+  output <- output %>%
+    mutate(covered = (response >= lower & response <= upper))
+  
+  return (output)
+}
+
+# Pass in results of coverage.test
+coverage.plot <- function(output, conf.level = 0.95, table, sims) {
+
+  ggplot(output, aes(x = fit, y = response)) +
+    geom_point(aes(color = output$covered)) +
+    geom_ribbon(mapping = aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.2) +
+    labs(title = paste0(conf.level*100, "% Prediction Interval on Unseen Data"),
+         x = "Predicted Value of Log Price", y = "Observed Value of Log Price", subtitle = paste("RMSE and Coverage are calculated from averaging", sims, "simulations")) +
+    theme_bw() + 
+    theme(legend.position = "none") + 
+    geom_abline(mapping = NULL, data = NULL, slope = 1, intercept = 0,
+  na.rm = FALSE, show.legend = NA, linetype = 2, color = 'black') + 
+  annotation_custom(tableGrob(table, rows = NULL), xmin=1.5, xmax=3.5, ymin=8, ymax=11)
+
+  }
+
+rmse = function(obs, pred) { sqrt(sum((obs - pred)^2)/length(obs))}
+
+```
+
+
+```{r LM Simulations, echo = F, message = F, warning = F}
+n <- sample(1500, 1100)
+TRAIN <- paint_train[n,]
+VALIDATE <- paint_train[-n,]
+
+sim_lm <- function(sims){
+  output <- matrix(NA, nrow = sims, ncol = 2)
+  for(i in 1:sims){
+    n <- sample(1500, 1100)
+    TRAIN <- paint_train[n,]
+    VALIDATE <- paint_train[-n,]
+    lm1 <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = TRAIN)
+    output[i,1] <- rmse(exp(predict(lm1, newdata = VALIDATE)), exp(VALIDATE$logprice))
+    tmp <- data.frame(exp(predict(lm1, newdata = VALIDATE, interval = "pred")))
+    tmp$response <- exp(VALIDATE$logprice)
+    tmp <- tmp %>% mutate(covered = (response >= lwr & response <= upr))
+    output[i,2] <- mean(tmp$covered)
+  }
+  
+  output <- data.frame(output)
+  names(output) <- c('RMSE','Coverage')
+  return(colMeans(output))
+}
+
+lm.data <- sim_lm(1000)
+lm.table <- data.frame(t(round(lm.data, 3)))
+lm.table$Model <- "Lin. Reg."
+lm.table <- lm.table %>% select(Model, RMSE, Coverage)
+
+
+lm1 <- lm(logprice ~ year + dealer + expensive + authorstyle + endbuyer + Interm + Surface + finished + lrgfont, data = TRAIN)
+
+cov_data <- coverage.test(lm1, VALIDATE, VALIDATE$logprice)
+coverage.plot(cov_data, table = lm.table, sims = 1000)
+
+```
+
+```{r RF Simulation, echo = F, message = F, warning = F}
+library(randomForest)
+
+set.seed(11)
+
+sim_rf <- function(sims){
+  output <- matrix(NA, nrow = sims, ncol = 2)
+  for(i in 1:sims){
+    n <- sample(1500, 1100)
+    TRAIN <- paint_train[n,]
+    VALIDATE <- paint_train[-n,]
+    rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth, 
+                   data = TRAIN, mytry = 6, importance = T)
+    
+    output[i,1] <- rmse(exp(predict(rf, newdata = VALIDATE)), exp(VALIDATE$logprice))
+    
+    pred1 <- predict(rf, newdata = VALIDATE, predict.all=TRUE)
+    pred1_int <- apply(pred1$individual, 1, function(x) {
+       quantile(x, c(0.5, 0.025, 0.975))})
+    rfdf <- data.frame(t(pred1_int))
+    rfdf$response <- VALIDATE$logprice
+    names(rfdf) <- c('fit', 'lower', 'upper', 'response')
+    rfdf <- rfdf %>%
+    mutate(covered = (response >= lower & response <= upper))
+    output[i,2] <- mean(rfdf$covered)
+  }
+
+  output <- data.frame(output)
+  names(output) <- c('RMSE','Coverage')
+  return(colMeans(output))
+}
+
+
+rf.sim <- sim_rf(50)
+rf.table <- data.frame(t(round(rf.sim, 3)))
+rf.table$Model <- "Random Forest"
+rf.table <- rf.table %>% select(Model, RMSE, Coverage)
+
+rf <- randomForest(logprice ~ year + dealer + origin_cat + diff_origin + expensive + 
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth, 
+                   data = TRAIN, mytry = 6, importance = T)
+
+pred1 <- predict(rf, newdata = VALIDATE, predict.all=TRUE)
+
+pred1_int <- apply(pred1$individual, 1, function(x) {
+  quantile(x, c(0.5, 0.025, 0.975))
+})
+
+rfdf <- data.frame(t(pred1_int))
+
+rfdf$response <- VALIDATE$logprice
+names(rfdf) <- c('fit', 'lower', 'upper', 'response')
+
+rfdf <- rfdf %>%
+    mutate(covered = (response >= lower & response <= upper))
+
+coverage.plot(rfdf, table = rf.table, sims = 25)
+
+```
+
+```{r BMA sim, echo = F, warning=F, message=F}
+library(BAS)
+
+BMA.data <- matrix(NA, nrow = 5, ncol = 2)
+
+for(i in 1:5){
+    n <- sample(1500, 1100)
+    TRAIN <- paint_train[n,]
+    VALIDATE <- paint_train[-n,]
+
+    model_ini <- lm(logprice ~ year + dealer + origin_cat + diff_origin + expensive +
+                         authorstyle + endbuyer + Interm + Surface + materialCat + 
+                         nfigures + engraved + prevcoll + paired + finished + lrgfont + 
+                         lands_sc + lands_elem + othgenre + discauth  + 
+                         (year + authorstyle +discauth):dealer + year:discauth, 
+                          data = TRAIN)
+
+    lm_bas <- bas.lm(model_ini, data = TRAIN, 
+                  prior = "g-prior", alpha = nrow(TRAIN), 
+                  modelprior = uniform(), method = "MCMC")
+
+    BMA.data[i,1] = rmse(exp(predict(lm_bas, newdata = VALIDATE)$fit),
+                                    exp(VALIDATE$logprice))
+
+# estimates under BMA model
+    summary.bas <- confint(coef(lm_bas))
+    df4 <- data.frame(variable = lm_bas$namesx, 
+                      coef = summary.bas[,3],
+                      lwr = summary.bas[,1],
+                      upr = summary.bas[,2],
+                      row.names = NULL) %>% arrange(desc(coef))
+    
+    
+    #predictions
+    x = predict(lm_bas, estimator = "BMA",newdata = VALIDATE, se.fit = T)
+    ints = data.frame(matrix(confint(x, parm = "pred"), nrow = 400, ncol=3))
+    names(ints) <- c('lower','upper','fit')
+    ints$response <- VALIDATE$logprice
+    ints <- ints %>%
+        mutate(covered = (response >= lower & response <= upper))
+    BMA.data[i,2] <- mean(ints$covered)
+}
+
+BMA.data <- data.frame(colMeans(BMA.data))
+BMA.data <- data.frame(t(BMA.data))
+names(BMA.data) <- c("RMSE", "Coverage")
+
+table.bma <- data.frame(Model = 'BMA',
+                        RMSE = BMA.data$RMSE,
+                        Coverage = BMA.data$Coverage)
+
+coverage.plot(ints, sims = 5, table = table.bma)
+```
+
+Comparing results between models, we see that RF does the best job with out of sample predictions, followed by the linear model and then BMA. These graphs visualize one random simulation to provide an idea of how the predictions look. The table on the graph shows the results when running the simulation *n* times. We see that while Random Forests produce slightly better RMSE than the linear regression model, the coverage is a little bit worse. Additionally, the Random Forest algorithm loses its interpretability by averaging many trees together. We want to present an interpretable model that does a good job with predictions while achieving proper coverage. Under this selection criteria, we determined that the linear regression model should be our final model. Now that we identified the model, we want to retrain the model on all of the training data. 
+
+
+**Our final model can be summarised as follows**: 
 
 $$
 \begin{aligned}
@@ -652,10 +833,12 @@ save(predictions, file="predict-test.Rdata")
 ```
   
 ## Assessment of the final model
+
 ```{r res plot, fig.asp=1, echo = F, message = F, warning = F}
 par(mfrow = c(2, 2))
 plot(final_model)
 ```
+
 Looking at the diagnostic plots, our final model seems to satisfy the assumptions of linear regression resonablly well. From the Residual vs Fitted plot we can see equally spread residuals around a horizontal line without any distinct patterns; The Normal Q-Q plot shows the residuals are almost normally-distributed. The Scale-Location plot shows that homoscedasticity is met. The Residual vs Leverage plot does not show any points that are influential or falls outside of Cook's distance line. 
   
 ```{r vif, echo = F, message = F, warning = F}
@@ -669,6 +852,7 @@ To check for the multicollinearity problem, we used variance inflation factor (V
 
 
 ### Predictions of Validation set and Top 10 paintings
+
 ```{r validation, echo = F, message = F, warning = F}
 #make same changes to validation set
 load("paintings_validation.RData")
