@@ -278,3 +278,5 @@ Before the test data was updated, we always felt upset because the coverage was 
 After a few attempts, we had to give up our most prefered model Random Forests since it could not yield prediction interval and the quantile method was not ideal. We then used Bayesian Model Averaging to do feature selection and cross referenced the results of RF and BMA and fitted a new linear model, which achieved relatively great performance. We found that succinct model usually have higher coverage and easy interpretability so it's easier for clients to understand and linear model is generally a great model choice. 
 
 In terms of painting price prediction, we think that due to the particularity of art, the author often has a great impact on the price. Besides, year of sale, dealer, if the authors name is introduced, type of end buyer, whether or not an intermediary is involved in the transaction, surface of painting, if the painting is finished, if the dealer devotes an additional paragraph, if origin of author is different than origin of painting also have a great impact on the price of paintings.
+
+Just test
