@@ -571,20 +571,6 @@ train_author <- paint_train %>%
 author_group = map(level, ~train_author$authorstandard[train_author$expensive == .x]) %>%
   set_names(level)
 
-# group the training set
-paint_train <- paint_train %>% 
-  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
-                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
-           as.factor())
-
-# group the test set using same metric, set new authors to 0
-paint_test <- paint_test %>% 
-  mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1], 
-                           authorstandard %in% author_group[[2]] ~ level[2]) %>% 
-           as.factor)
-paint_test$expensive[is.na(paint_test$expensive)] <- level[2]
-
-
 paintings_validation <- paintings_validation %>% 
   mutate(expensive = case_when(authorstandard %in% author_group[[1]] ~ level[1],
                               authorstandard %in% author_group[[2]] ~ level[2]) %>% as.factor)
