@@ -335,6 +335,9 @@ To assess the performance of the random forest model, we first evaluated it usin
 # colnames(predictions_rf) <- c("fit", "lwr", "upr")
 ```
 
+### Lasso
+Apart from including random forests in our model development, we also put consideration into Lasso since this model is suitable for both variable selection and preventing overfitting through shrinkage. However, due to the fact that we have most of variables as categorical, some with multiple levels, it is hard to decide whether to normalize these predictors before modeling because if we do so, the result will depend on class prevalence and for multilevel predictors, we need to regroup them. The result will vary depending on our reference level and generate more difficulty for interpretation as well. In addition, similar to trees, Lasso doesn’t have an existing prediction interval and we will need to use bootstrap to obtain such interval. Thus, to make our model easier to understand and more convenient for predictions, we decide to move on and do not include Lasso in the model-building process.
+
 ### Bayesian Model Averaging
 
 ```{r full model}
@@ -388,6 +391,7 @@ kable(df4, "latex", booktabs = T,
 ```
 
 From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *auhtorstyle*:*dealer* since their margnial inclusion probability is less than 0.5. 
+
 
 After cross referencing the result of random forrest and BMA, we decided to give another shot with simple models. So we discarded the variables that are not significant and refit a linear model. The problem of overfitting still exists. To further select variables, we used Added variable plots, which shows us the relationship between the response variable and one of the predictors in the regression model, after controlling for the presence of other predictors. 
 
