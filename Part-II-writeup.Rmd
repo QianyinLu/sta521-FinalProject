@@ -239,7 +239,7 @@ ggpairs(paint_train, columns = c(5, 26:32),
   
 For EDA in Part-II, we added pairwise plot to have a general view of the interactions of all the variables. Here we listed some interesting findings. 
  
- - The continuous variable *year* and *Surface* seem to be positively correlated with *logprice*. Additionally, there seems to be a non-linear relationship between *year* and *logprice*. 
+ - The continuous variable *year* and *Surface* seem to be positively correlated with *logprice*. Additionally, there seems to be a non-linear relationship between *year* and *logprice*. However, after including $year^2$ and $year^3$, Neither diagnostic plots nor predictive coverage improved, so **we dropped the quadradic and cubic term**. 
  - The pairwise plot of *year* and other categorical variables revealed that there might be interaction effect between these variables, which we should consider in model building. 
  - The interactions between categorical variables is not that significant due to **class imbalance**. There are simply not enough observation for most of the categorical variable interaction. 
  - Based on the plot, we could conclude that the most important predictors are: *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth*. 
@@ -256,7 +256,7 @@ kable(prelim_data, caption = "Results from Preliminary Model")
 
 After the test data was updated at 11 P.M. on December 12th, we went back to our preliminary model to check our true results. It turns out that this linear regression model was actually achieving 95.6% coverage instead of the mentioned 65% coverage in our Part I write-up. The bias was also significantly lower than we thought, coming in at 120.3. Our RMSE was still large, though, resulting in a score of 2360.
 
-This model has low bias and high variance, meaning that we overfit the data. Coverage is sufficient so we want to focus our attention on improving the RMSE. This can be achieved through the bias-variance trade-off. We can significantly reduce the variance if we induce a little more bias into our model, thus improving our RMSE score. 
+This model has low bias and high variance, meaning that we overfit the data. Coverage is sufficient so we want to focus our attention on improving the RMSE. This can be achieved through the **bias-variance trade-off**. We can significantly reduce the variance if we induce a little more bias into our model, thus improving our RMSE score. 
 
 The mean deviation was 551.74 but the max deviation was over 50,000. Our model is doing a good job on most predictions, but there are a few predictions that are extremely off, inflating the RMSE score. Our goal moving forward is to improve on these extreme cases and to introduce a little more bias into the model to produce a lower RMSE.
 
@@ -267,7 +267,7 @@ We tried several complex models to better depict the behaviour of the response v
 
 ### Random Forest
 
-Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the DEA above. Below is the important variable plot and the top 10 most important variable table. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. From random forrest we obtained the 5 least important variables and discarded them in further modeling. The variables are displayed in the table below. 
+Since we have many variables and the interactions among them can be involved, a tree model seems to be appropriate for the setting. To alleviate the unstability of single tree models, we used random forest method to achieve more robust estimation. We select *year*, *dealer*, *origin_cat*, *diff_origin*, *expensive*, *authorstyle*,*endbuyer*, *Interm*, *Surface*, *materialCat*, *nfigures*, *engraved*, *prevcoll*, *paired*, *finished*, *lrgfont*, *lands_sc*, *lands_elem*, *othgenre*, *discauth* as predictors based on the EDA above. The 10 most important variables are *experience*, *year*, *Surface*, *endbuyer*, *dealer*, *materialCat*, *origin_cat*, *paired*, *Irgfont* and *finished*. Below is the important variable plot and the 5 least important variable table. We will discarded these 5 least important variables in further modeling. 
   
 ```{r tree}
 set.seed(222)
@@ -303,7 +303,7 @@ rf_rmse <- rmse(exp(paint_train$logprice), exp(rf_pred_train))
 #   geom_smooth(method = "lm", se = T)
 ```
   
-To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to the narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
+To assess the performance of the random forest model, we first evaluated it using training set which achieved a training RMSE of `r rf_rmse`. However when we used it for test set, the prediction contains only a point estimate instead of a prediction interval. We tried to compute the interval using the quantile method, but the coverage is not ideal, which might due to narrower interval. So we move on to other variable selection method like Bayesian Model Averaging. 
 
 ### still need predictive checks ###
 
@@ -333,7 +333,7 @@ To assess the performance of the random forest model, we first evaluated it usin
 # ini_aic <- step(model_ini, trace = F, k = 2)
 ```
   
-From the analysis so far our main problem is overfitting. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
+From the analysis so far our main problem is **overfitting**. This might be improved with Bayesian Model Averaging (BMA) which is an application of Bayesian inference to the problems of model selection, combined estimation and prediction that produces a straightforward model choice criteria and less risky predictions. [1]
 
 In addition to the variables we used in the random forrest model, we also added interactions based on the p-value of these interactions (See Appendix for the summary of the full model), namely *dealer* with *year*, *authorstyle* and *discauth*, *year* and *discauth*. The results can be summarised as follows: 
 
@@ -370,6 +370,7 @@ kable(df4, "latex", booktabs = T,
 # confint <- exp(interval)
 # predictions <- data.frame(fit = confint[,3], lwr = confint[,1], upr = confint[,2])
 ```
+
 From the marginal inclusion probability plot, we should exclude *materialCat*, *nfigures*, *lands_elem*, *auhtorstyle*:*dealer* since their margnial inclusion probability is less than 0.5. 
 
 After cross referencing the result of random forrest and BMA, we decided to give another shot with simple models. So we discarded the variables that are not significant and refit a linear model. The problem of overfitting still exists. To further select variables, we used Added variable plots, which shows us the relationship between the response variable and one of the predictors in the regression model, after controlling for the presence of other predictors. 
@@ -382,7 +383,7 @@ new_lm <- lm(logprice ~ year + dealer + origin_cat + diff_origin +
 avPlots(new_lm)
 ```
 
-From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat* and *year*:*dealer*, so we deleted these variables to refit the linear model. Our final model can be summarised as follows: 
+From the Added variable plots above, we observed that the regression line is nearly flat with variables *paired*, *origin_cat* and *year*:*dealer*, so we deleted these variables to refit the linear model. **Our final model can be summarised as follows**: 
 
 $$
 \begin{aligned}
