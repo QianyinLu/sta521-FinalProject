@@ -522,7 +522,7 @@ ImpMeasure<-data.frame(Overall = varImp(rf)$Overall)
 ImpMeasure$Vars<-rownames(varImp(rf))
 ```
 
-```{r rf table}, echo = F, message = F, warning = F
+```{r rf table, echo = F, message = F, warning = F}
 kable(ImpMeasure[order(-ImpMeasure$Overall),][15:19,], 
       "latex", booktabs = T, 
       digits = 3, caption = "Least 5 important variables of RF") %>% 
