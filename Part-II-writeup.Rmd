@@ -1056,10 +1056,10 @@ kable(Top10, "latex", booktabs = T, digits = 3,
 Using our model for predicting price for validation data set, we got our top 10 valuable paintings.From this we can learn what are some desirable features of the paintings based on our model through observing these valuable paintings all share certain common features, such as they are all from the same dealer, R. In addition, endbuyers are mostly from category C, the dealer devotes an additional paragraph and an intermediary is involved in the transaction etc. This is quite expected due to the way we constructed our model. 
 
 ```{r pred, echo = F, message = F, warning = F}
-predictions_validation = as.data.frame(
+predictions = as.data.frame(
   exp(predict(final_model, newdata=paintings_validation, 
               interval = "pred")))
-save(predictions_validation, file="prediction-validation.Rdata")
+save(predictions, file="prediction-validation.Rdata")
 ```
 
 ## Conclusion
